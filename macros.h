@@ -7,7 +7,7 @@
 #define AssertBreak *(int *)0 = 0;
 #define Assert(expression) { if(!(expression)) { AssertBreak; } }
 #define FloatEqual(x, y) { return (abs(x - y) < FLT_EPSILON) ? true : false; }
-#define AssertZero(expression) { if((expression)) { AssertBreak } };
+#define AssertZero(expression) { if((expression)) { AssertBreak; } };
 
 #else
 
