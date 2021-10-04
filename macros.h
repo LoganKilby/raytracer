@@ -7,7 +7,8 @@
 #define AssertBreak *(int *)0 = 0;
 #define Assert(expression) { if(!(expression)) { AssertBreak; } }
 #define AssertZero(expression) { if((expression != 0)) { AssertBreak; } };
-#define FloatEqual(x, y) { return (abs(x - y) < FLT_EPSILON) ? true : false; }
+#define FloatEqual(x, y) (fabs(x - y) < FLT_EPSILON)
+#define FloatZero(x) fabs(x) < FLT_EPSILON
 
 #else
 
@@ -15,6 +16,6 @@
 #define Assert(expression);
 #define AssertZero(expression);
 #define FloatEqual(x, y);
-#endif //RAYTRACER_SLOW
 
+#endif //RAYTRACER_SLOW
 #endif //MACROS_H
