@@ -6,3 +6,4 @@ build/main.obj
 *.pdb
 *.ppm
 *.sh
+build/test.obj
