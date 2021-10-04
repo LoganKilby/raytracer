@@ -2,18 +2,7 @@
 #include "macros.h"
 #include "math_functions.h"
 #include "qpc.h"
-
-struct projectile
-{
-    v4 position;
-    v4 velocity;
-};
-
-struct environment
-{
-    v4 gravity;
-    v4 wind_direction;
-};
+#include "ray.cpp"
 
 struct color4
 {
@@ -43,7 +32,7 @@ int main()
     
     mat4 ortho = ortho_matrix(0, 720, 0, 1080, 0, 1);
     ortho = mat4_transpose(ortho);
-    v4 position = point(-1, -1, 0);
+    v4 position = point(-1, -1, 0, 1);
     //u32 x = min(buffer.width - 1, (ndc.x + 1) * 0.5 * buffer.width);
     //u32 y = min(buffer.height - 1, (ndc.y + 1) * 0.5 * buffer.height);
     

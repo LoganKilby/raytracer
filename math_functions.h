@@ -17,6 +17,23 @@ struct v3
     float x, y, z;
 };
 
+struct v2
+{
+    float x, y;
+};
+
+inline v4
+vector(f32 x, f32 y, f32 z, f32 w)
+{ 
+    Assert(w == 0);
+    v4 result; 
+    result.x = x;
+    result.y = y;
+    result.z = z;
+    result.w = w;
+    return(result); 
+};
+
 inline v4
 vector(f32 x, f32 y, f32 z)
 { 
@@ -27,6 +44,18 @@ vector(f32 x, f32 y, f32 z)
     result.w = 0;
     return(result); 
 };
+
+inline v4
+point(f32 x, f32 y, f32 z, f32 w)
+{
+    Assert(w == 1);
+    v4 result;
+    result.x = x;
+    result.y = y;
+    result.z = z;
+    result.w = w;
+    return(result);
+}
 
 inline v4
 point(f32 x, f32 y, f32 z)
@@ -219,6 +248,16 @@ mat4_translation(mat4 m, v3 t)
 }
 
 inline mat4
+mat4_translation(v3 t)
+{
+    mat4 result = mat4_identity();
+    result.m03 = t.x;
+    result.m13 = t.y;
+    result.m23 = t.z;
+    return(result);
+}
+
+inline mat4
 mat4_scale(mat4 m, v3 s)
 {
     mat4 result = mat4_identity();
@@ -226,6 +265,16 @@ mat4_scale(mat4 m, v3 s)
     result.m11 = s.y;
     result.m22 = s.z;
     result = mat4_multiply(result, m);
+    return(result);
+}
+
+inline mat4
+mat4_scale(v3 s)
+{
+    mat4 result = mat4_identity();
+    result.m00 = s.x;
+    result.m11 = s.y;
+    result.m22 = s.z;
     return(result);
 }
 
@@ -535,6 +584,12 @@ inline f32
 fmin(f32 a, f32 b)
 {
     return a < b ? a : b;
+}
+
+inline f32
+fmax(f32 a, f32 b)
+{
+    return a > b ? a : b;
 }
 
 inline mat4
