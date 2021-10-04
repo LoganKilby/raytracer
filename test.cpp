@@ -234,6 +234,59 @@ void translated_ray_sphere_intersection()
     TrackResult(!collision && result);
 }
 
+void sphere_normals()
+{
+    sphere s = {};
+    v4 nx = sphere_normal(s, point(1, 0, 0));
+    v4 ny = sphere_normal(s, point(0, 1, 0));
+    v4 nz = sphere_normal(s, point(0, 0, 1));
+    
+    f32 f = sqrt(3) / 3;
+    v4 na = sphere_normal(s, point(f, f, f)); 
+    bool result = v4_equality(nx, {1, 0, 0, 0});
+    result &= v4_equality(ny, {0, 1, 0, 0});
+    result &= v4_equality(nz, {0, 0, 1, 0});
+    result &= v4_equality(na, {f, f, f, 0});
+    TrackResult(result);
+}
+
+void aug_sphere_normals()
+{
+    sphere s;
+    s.origin = point(0, 0, 0);
+    s.radius = 1;
+    s.transform = mat4_translation(0, 1, 0);
+    v4 n = sphere_normal(s, point(0, 1.70711, -0.70711));
+    bool result = v4_equality(n, vector(0, 0.70711, -0.70711));
+    TrackResult(result);
+}
+
+void aug_sphere_normals2()
+{
+    sphere s;
+    s.origin = point(0, 0, 0);
+    s.radius = 1;
+    
+    mat4 m = mat4_scale(1, 0.5, 1);
+    m = mat4_rotation(m, {0, 0, 1}, M_PI / 5);
+    s.transform = m;
+    
+    f32 f = sqrt(2) / 2;
+    v4 n = sphere_normal(s, point(0, f, -f));
+    bool result = v4_equality(n, vector(0, 0.97014, -0.24254));
+    TrackResult(result);
+}
+
+void sub_matrix()
+{
+    mat4 n = mat4_identity();
+    mat3 m = mat3_submat4(n);
+    mat3 p = mat3_identity();
+    bool result = mat3_equality(m, p);
+    TrackResult(result);
+}
+
+
 int main()
 {
     scale_inverse();
@@ -253,4 +306,10 @@ int main()
     scale_ray();
     scaled_ray_sphere_intersect();
     translated_ray_sphere_intersection();
+    sub_matrix();
+    sphere_normals();
+    aug_sphere_normals2();
+    aug_sphere_normals();
+    
+    printf("%d tests ran.\n", tests_ran);
 }

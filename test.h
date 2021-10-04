@@ -42,7 +42,8 @@ struct test
     }
 };
 
-#define TrackResult(Status) { test t(__COUNTER__, __func__, __LINE__, Status); }
+global_variable s32 tests_ran = 0;
+#define TrackResult(Status) { test t(__COUNTER__, __func__, __LINE__, Status); tests_ran++;}
 
 bool mat4_equality(mat4 mat_a, mat4 mat_b)
 {
@@ -70,6 +71,23 @@ bool v4_equality(v4 v, v4 u)
     bool w = fabs(v.w - u.w) < fe2;
     
     return(x && y && z && w);
+}
+
+bool mat3_equality(mat3 mat_a, mat3 mat_b)
+{
+    f32 *a = &mat_a.m00;
+    f32 *b = &mat_b.m00;
+    
+    bool result = 1;
+    for(int row = 0; row < 3; ++row)
+    {
+        for(int col = 0; col < 3; ++col)
+        {
+            result &= (a[row * 3 + col] == b[row * 3 + col]);
+        }
+    }
+    
+    return result;
 }
 
 #endif //TEST_H

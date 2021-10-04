@@ -3,9 +3,11 @@
 #ifndef MACROS_H
 #define MACROS_H
 
+#include "stdio.h"
+
 #ifdef RAYTRACER_SLOW
 #define AssertBreak *(int *)0 = 0;
-#define Assert(expression) { if(!(expression)) { AssertBreak; } }
+#define Assert(expression) { if(!(expression)) { printf("assertion triggered. exiting...\n"); AssertBreak; } }
 #define AssertZero(expression) { if((expression != 0)) { AssertBreak; } };
 #define FloatEqual(x, y) (fabs(x - y) < FLT_EPSILON)
 #define FloatZero(x) fabs(x) < FLT_EPSILON

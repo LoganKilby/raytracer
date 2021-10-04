@@ -7,11 +7,6 @@
 #include "math.h"
 #include "float.h"
 
-struct v4
-{
-    float x, y, z, w;
-};
-
 struct v3
 {
     float x, y, z;
@@ -26,6 +21,26 @@ struct u2
 {
     u32 x;
     u32 y;
+};
+
+struct v4
+{
+    float x, y, z, w;
+    
+    v4(f32 x, f32 y, f32 z, f32 w)
+    {
+        x = x; y = y; z = z; w = w;
+    }
+    
+    v4()
+    {
+        x = 0; y = 0; z = 0; w = 0;
+    }
+    
+    v4(v3 a, f32 w)
+    {
+        x = a.x; y = a.y; z = a.z; w = w;
+    }
 };
 
 inline v4
@@ -51,6 +66,16 @@ vector(f32 x, f32 y, f32 z)
     return(result); 
 };
 
+inline v3
+vector3(v4 v)
+{
+    v3 result;
+    result.x = v.x;
+    result.y = v.y;
+    result.z = v.z;
+    return(result);
+}
+
 inline v4
 point(f32 x, f32 y, f32 z, f32 w)
 {
@@ -74,6 +99,16 @@ point(f32 x, f32 y, f32 z)
     return(result);
 }
 
+inline v3
+point3(f32 x, f32 y, f32 z)
+{
+    v3 result;
+    result.x = x;
+    result.y = y;
+    result.z = z;
+    return(result);
+}
+
 inline v4
 v4_sub(v4 u, v4 v)
 {
@@ -82,6 +117,16 @@ v4_sub(v4 u, v4 v)
     result.y = u.y - v.y;
     result.z = u.z - v.z;
     result.w = u.w - v.w;
+    return(result);
+}
+
+inline v3
+v3_sub(v3 u, v3 v)
+{
+    v3 result;
+    result.x = u.x - v.x;
+    result.y = u.y - v.y;
+    result.z = u.z - v.z;
     return(result);
 }
 
@@ -162,7 +207,19 @@ v4_magnitude(v4 v)
 inline v4
 v4_normalize(v4 v)
 {
-    AssertZero(v.w);
+    f32 inverse_magnitude = 1 / sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+    
+    v4 result;
+    result.x = v.x * inverse_magnitude;
+    result.y = v.y * inverse_magnitude;
+    result.z = v.z * inverse_magnitude;
+    result.w = 0;
+    return(result);
+}
+
+inline v4
+v4_normalize(v3 v)
+{
     f32 inverse_magnitude = 1 / sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
     
     v4 result;
@@ -262,6 +319,16 @@ mat4_translation(v3 t)
 }
 
 inline mat4
+mat4_translation(f32 x, f32 y, f32 z)
+{
+    mat4 result = mat4_identity();
+    result.m03 = x;
+    result.m13 = y;
+    result.m23 = z;
+    return(result);
+}
+
+inline mat4
 mat4_scale(mat4 m, v3 s)
 {
     mat4 result = mat4_identity();
@@ -279,6 +346,16 @@ mat4_scale(v3 s)
     result.m00 = s.x;
     result.m11 = s.y;
     result.m22 = s.z;
+    return(result);
+}
+
+inline mat4
+mat4_scale(f32 x, f32 y, f32 z)
+{
+    mat4 result = mat4_identity();
+    result.m00 = x;
+    result.m11 = y;
+    result.m22 = z;
     return(result);
 }
 
@@ -434,6 +511,35 @@ struct mat3
 };
 
 inline mat3
+mat3_transpose(mat3 m)
+{
+    mat3 result;
+    result.m00 = m.m00;
+    result.m01 = m.m10;
+    result.m02 = m.m20;
+    
+    result.m10 = m.m01;
+    result.m11 = m.m11;
+    result.m12 = m.m21;
+    
+    result.m20 = m.m02;
+    result.m21 = m.m12;
+    result.m22 = m.m22;
+    
+    return(result);
+}
+
+inline v3
+v3_mat3_multiply(v3 v, mat3 m)
+{
+    v3 result;
+    result.x = v.x * m.m00 + v.y * m.m01 + v.z * m.m02;
+    result.y = v.x * m.m10 + v.y * m.m11 + v.z * m.m12;
+    result.z = v.x * m.m20 + v.y * m.m21 + v.z * m.m22;
+    return(result);
+}
+
+inline mat3
 new_mat3(f32 m00, f32 m01, f32 m02,
          f32 m10, f32 m11, f32 m12,
          f32 m20, f32 m21, f32 m22)
@@ -466,7 +572,7 @@ mat3_identity()
 }
 
 inline mat3
-mat3_submat4(mat4 matrix, int row_ignore, int col_ignore)
+mat3_submat4(mat4 matrix, int row_ignore = 3, int col_ignore = 3)
 {
     mat3 result = {};
     f32 *r = &result.m00;

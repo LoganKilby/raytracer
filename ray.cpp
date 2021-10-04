@@ -1,5 +1,16 @@
 #include "ray.h"
 
+internal v4
+sphere_normal(sphere s, v4 w_point)
+{
+    v3 p = {w_point.x, w_point.y, w_point.z};
+    mat3 inv_transform = mat3_inverse(mat3_submat4(s.transform));
+    v3 obj_space_point = v3_mat3_multiply(p, inv_transform);
+    v3 obj_normal = v3_sub(obj_space_point, point3(0, 0, 0));
+    v3 world_normal = v3_mat3_multiply(obj_normal, mat3_transpose(inv_transform));
+    return v4_normalize(world_normal);
+}
+
 inline ray
 transform_ray(ray r, mat4 m)
 {
@@ -77,3 +88,7 @@ ray_scale(ray r, mat4 m)
     result.direction = v4_mat4_multiply(r.direction, m);
     return result;
 }
+
+
+// to find the eye vector, negate the ray's direction vector
+// to find the surface->light vector, P->L = L - P
