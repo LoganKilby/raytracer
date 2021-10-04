@@ -28,7 +28,7 @@ command_list = {
             { "./build.sh", .os = "linux" },
             { "./build.sh", .os = "mac"   }, }, },
  { .name = "run",
-   .out = "*run*", .footer_panel = true, .save_dirty_files = false,
+   .out = "*run*", .footer_panel = true, .save_dirty_files = true,
    .cmd = { { "run.bat", .os = "win"   },
             { "build/raytracer" , .os = "linux" },
             { "build/raytracer" , .os = "mac"   }, }, },
