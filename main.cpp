@@ -138,13 +138,11 @@ write_ppm(f32 *pixel_data, int width, int height, char *filename)
     fprintf(file_handle, "P3\n%u %u\n255\n", width, height);
     
     int pitch = width * 4;
+    u8 r, g, b;
     for(f32 *row = pixel_data; 
         row < pixel_data + height * pitch; 
         row += pitch)
     {
-        u8 r, g, b;
-        
-        int chars_printed = 0;
         for(f32 *col = row; col < row + pitch; col += 4)
         {
             r = (u8)clampf(*(col), 0, 1) * 255;
