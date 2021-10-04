@@ -22,6 +22,12 @@ struct v2
     float x, y;
 };
 
+struct u2
+{
+    u32 x;
+    u32 y;
+};
+
 inline v4
 vector(f32 x, f32 y, f32 z, f32 w)
 { 
@@ -128,8 +134,6 @@ v4_sdiv(v4 v, f32 a)
 inline f32
 v4_dot(v4 u, v4 v)
 {
-    AssertZero(u.w);
-    AssertZero(v.w);
     f32 result;
     result = u.x * v.x + u.y * v.y + u.z * v.z + u.w * v.w;
     return(result);
@@ -307,6 +311,65 @@ mat4_rotation(mat4 m, v3 axis, f32 radians)
     }
     
     result = mat4_multiply(result, m);
+    return(result);
+}
+
+inline mat4
+mat4_shear(mat4 m, f32 xy, f32 xz, f32 yx, f32 yz, f32 zx, f32 zy)
+{
+    mat4 n = mat4_identity();
+    n.m01 = xy;
+    n.m02 = xz;
+    n.m10 = yx;
+    n.m12 = yz;
+    n.m20 = zx;
+    n.m21 = zy;
+    
+    return mat4_multiply(m, n);
+}
+
+inline mat4
+mat4_shear(f32 xy, f32 xz, f32 yx, f32 yz, f32 zx, f32 zy)
+{
+    mat4 n = mat4_identity();
+    n.m01 = xy;
+    n.m02 = xz;
+    n.m10 = yx;
+    n.m12 = yz;
+    n.m20 = zx;
+    n.m21 = zy;
+    
+    return n;
+}
+
+inline mat4
+mat4_rotation(v3 axis, f32 radians)
+{
+    Assert(axis.x + axis.y + axis.z == 1);
+    
+    mat4 result = mat4_identity();
+    if(axis.x)
+    {
+        result.m11 = cos(radians);
+        result.m12 = -sin(radians);
+        result.m21 = sin(radians);
+        result.m22 = cos(radians);
+    }
+    else if(axis.y)
+    {
+        result.m00 = cos(radians);
+        result.m02 = sin(radians);
+        result.m20 = -sin(radians);
+        result.m22 = cos(radians);
+    }
+    else if(axis.z)
+    {
+        result.m00 = cos(radians);
+        result.m01 = -sin(radians);
+        result.m10 = sin(radians);
+        result.m11 = cos(radians);
+    }
+    
     return(result);
 }
 
@@ -593,7 +656,7 @@ fmax(f32 a, f32 b)
 }
 
 inline mat4
-ortho_matrix(f32 bottom, f32 top, f32 left, f32 right, f32 near, f32 far)
+ortho_matrix(f32 left, f32 right, f32 bottom, f32 top, f32 near, f32 far)
 {
     mat4 result = mat4_identity();
     result.m00 = 2 / (right - left);

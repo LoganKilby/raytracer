@@ -140,7 +140,7 @@ void ray_hit_test()
 void ray_sphere_hit()
 {
     sphere s = new_sphere({0, 0, 0}, 1);
-    ray r = new_ray({0, 0, -5}, {0, 0, 1});
+    ray r = new_ray(point(0, 0, -5), vector(0, 0, 1));
     
     intersection i;
     bool collision = ray_sphere_intersection(r, s, &i);
@@ -151,7 +151,7 @@ void ray_sphere_hit()
 void ray_sphere_mult_intersection()
 {
     sphere s = new_sphere({0, 0, 0}, 1);
-    ray r = new_ray({0, 1, -5}, {0, 0, 1});
+    ray r = new_ray(point(0, 1, -5), vector(0, 0, 1));
     
     intersection i;
     bool collision = ray_sphere_intersection(r, s, &i);
@@ -162,7 +162,7 @@ void ray_sphere_mult_intersection()
 void ray_sphere_miss()
 {
     sphere s = new_sphere({0, 0, 0}, 1);
-    ray r = new_ray({0, 2, -5}, {0, 0, 1});
+    ray r = new_ray(point(0, 2, -5), vector(0, 0, 1));
     
     intersection i;
     bool collision = ray_sphere_intersection(r, s, &i);
@@ -173,7 +173,7 @@ void ray_sphere_miss()
 void ray_inside_sphere()
 {
     sphere s = new_sphere({0, 0, 0}, 1);
-    ray r = new_ray({0, 0, 0}, {0, 0, 1});
+    ray r = new_ray(point(0, 0, 0), vector(0, 0, 1));
     
     intersection i;
     bool collision = ray_sphere_intersection(r, s, &i);
@@ -184,7 +184,7 @@ void ray_inside_sphere()
 void ray_behind_sphere()
 {
     sphere s = new_sphere({0, 0, 0}, 1);
-    ray r = new_ray({0, 0, 5}, {0, 0, 1});
+    ray r = new_ray({0, 0, 5, 1}, {0, 0, 1, 0});
     
     intersection i;
     bool collision = ray_sphere_intersection(r, s, &i);
@@ -214,7 +214,7 @@ void scale_ray()
 
 void scaled_ray_sphere_intersect()
 {
-    ray r = new_ray({0, 0, -5}, {0, 0, 1});
+    ray r = new_ray({0, 0, -5, 1}, {0, 0, 1, 0});
     sphere s = new_sphere({0, 0, 0}, 1);
     s.transform = mat4_scale({2, 2, 2});
     intersection i;
@@ -225,7 +225,7 @@ void scaled_ray_sphere_intersect()
 
 void translated_ray_sphere_intersection()
 {
-    ray r = new_ray({0, 0, -5}, {0, 0, 1});
+    ray r = new_ray({0, 0, -5, 1}, {0, 0, 1, 0});
     sphere s = new_sphere({0, 0, 0}, 1);
     s.transform = mat4_translation({5, 0, 0});
     intersection i;

@@ -24,44 +24,97 @@ struct pixel_buffer
 internal void write_ppm(f32 *, int, int, char *);
 internal pixel_buffer new_pixel_buffer(int width, int height);
 internal void clear(pixel_buffer buffer, color4 color);
-internal void set_pixel(pixel_buffer buffer, int x, int y, color4 color);
+internal void set_pixel(pixel_buffer buffer, f32 x, f32 y, color4 color);
+internal u2 screen_coordinates(v4 position, mat4 ortho, s32 width, s32 height);
+
+internal void
+cast_sphere_shadow(pixel_buffer buffer)
+{
+    clear(buffer, {0.0f, 0.0f, 0.0f, 1.0f});
+    
+    sphere s = new_sphere({0, 0, 0}, 1);
+    s.transform = mat4_shear(1, 0, 0, 1, 0, 0);
+    s.transform = mat4_scale(s.transform, {0.5, 1, 1});
+    
+    ray r;
+    v4 ray_origin = point(0, 0, -5);
+    
+    f32 wall_z = 10;
+    f32 wall_size = 7.0;
+    f32 pixel_size = wall_size / 100;
+    f32 half_wall = wall_size / 2;
+    
+    f32 world_x;
+    f32 world_y;
+    
+    intersection i;
+    
+    int quarter_row = buffer.height / 4;
+    printf("drawing scene\n");
+    for(int row = 0; row < buffer.height; ++row)
+    {
+        if(row == quarter_row)
+        {
+            printf("25%%...\n");
+        }
+        else if(row == quarter_row * 2)
+        {
+            printf("50%%...\n");
+        }
+        else if(row == quarter_row * 3)
+        {
+            printf("75%%...\n");
+        }
+        
+        world_y = half_wall - (pixel_size * row);
+        for(int col = 0; col < buffer.width; ++col)
+        {
+            world_x = -half_wall + pixel_size * col;
+            v4 position = point(world_x, world_y, wall_z);
+            r = new_ray(ray_origin, v4_normalize(v4_sub(position, ray_origin)));
+            ray_sphere_intersection(r, s, &i);
+            f32 hit = ray_hit(i.t0, i.t1);
+            if(hit > 0)
+            {
+                set_pixel(buffer, col, row, {1.0f, 1.0f, 1.0f, 1.0f});
+            }
+            
+            
+        }
+    }
+    
+    printf("finished.\n");
+}
 
 int main()
 {
-    pixel_buffer buffer = new_pixel_buffer(1080, 720);
-    
-    mat4 ortho = ortho_matrix(0, 720, 0, 1080, 0, 1);
-    ortho = mat4_transpose(ortho);
-    v4 position = point(-1, -1, 0, 1);
-    //u32 x = min(buffer.width - 1, (ndc.x + 1) * 0.5 * buffer.width);
-    //u32 y = min(buffer.height - 1, (ndc.y + 1) * 0.5 * buffer.height);
-    
-    clear(buffer, {0.0f, 0.0f, 0.0f, 1.0f});
-    
-    v4 ndc;
-    for(int row = 0; row < 720; ++row)
-    {
-        ndc = v4_mat4_multiply(position, ortho);
-        ndc.x /= ndc.z;
-        ndc.y /= ndc.z;
-        u32 x = (ndc.x * 0.5 * buffer.width) + 0.5f;
-        u32 y = (ndc.y * 0.5 * buffer.height) + 0.5f;
-        set_pixel(buffer, x, y, {1.0f, 1.0f, 1.0f, 1.0f});
-        position.y++;
-    }
-    
+    pixel_buffer buffer = new_pixel_buffer(100, 100);
+    printf("buffer created\n");
+    cast_sphere_shadow(buffer);
     write_ppm(buffer.data, buffer.width, buffer.height, "test.ppm");
     return(0);
 }
 
+internal u2
+screen_coordinates(v4 position, mat4 ortho, s32 width, s32 height)
+{
+    v4 ndc = v4_mat4_multiply(position, ortho);
+    ndc.x /= ndc.z;
+    ndc.y /= ndc.z;
+    u2 screen_coords;
+    screen_coords.x = ((ndc.x + 1) * 0.5 * width) + 0.5f;
+    screen_coords.y = ((ndc.y + 1) * 0.5 * height) + 0.5f;
+    return(screen_coords);
+}
+
 internal void
-set_pixel(pixel_buffer buffer, int x, int y, color4 color)
+set_pixel(pixel_buffer buffer, f32 x, f32 y, color4 color)
 {
     if((x >= buffer.width || x < 0) || (y >= buffer.height || y < 0))
         return;
     
     f32 *row = &buffer.data[0];
-    f32 *pixel = row + buffer.pitch * y + x * 4;
+    f32 *pixel = row + (buffer.pitch * (u32)y) + ((u32)x * 4);
     *(pixel)     = color.r;
     *(pixel + 1) = color.g;
     *(pixel + 2) = color.b;
@@ -93,7 +146,6 @@ new_pixel_buffer(int width, int height)
     result.pitch = width * 4;
     int buffer_size = sizeof(f32) * width * height * 4;
     result.data = (f32 *)malloc(buffer_size);
-    memset(result.data, 0, buffer_size);
     result.width = width;
     result.height = height;
     return result;

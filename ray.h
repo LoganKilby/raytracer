@@ -45,6 +45,15 @@ new_ray(v3 origin, v3 direction)
     return result;
 }
 
+inline ray
+new_ray(v4 origin, v4 direction)
+{
+    ray result;
+    result.origin = origin;
+    result.direction = direction;
+    return result;
+}
+
 inline sphere
 new_sphere(v3 origin, f32 radius)
 {
