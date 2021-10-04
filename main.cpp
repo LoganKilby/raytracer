@@ -25,7 +25,7 @@ struct color4
 
 struct pixel_buffer
 {
-    // NOTE: 4 bytes per pixel
+    // NOTE: 4 floats per pixel
     f32 *data;
     int width;
     int height;
