@@ -3,9 +3,18 @@
 #ifndef MATH_FUNCTIONS_H
 #define MATH_FUNCTIONS_H
 
+#define _USE_MATH_DEFINES
+#include "math.h"
+#include "float.h"
+
 struct v4
 {
     float x, y, z, w;
+};
+
+struct v3
+{
+    float x, y, z;
 };
 
 inline v4
@@ -183,19 +192,87 @@ mat4_multiply(mat4 a, mat4 b)
     
     mat4 result;
     f32 *r = &result.m00;
-    int index;
     for(int row = 0; row < 4; ++row)
     {
         for(int col = 0; col < 4; ++col)
         {
-            r[row + 4 * col] = 
-                m[row] * s[4 * col] +
-                m[row + 4]  * s[1 + 4 * col] +
-                m[row + 8]  * s[2 + 4 * col] +
-                m[row + 12] * s[3 + 4 * col];
+            r[row * 4 + col] = 
+                m[row * 4 + 0] * s[col + (4 * 0)] +
+                m[row * 4 + 1] * s[col + (4 * 1)] +
+                m[row * 4 + 2] * s[col + (4 * 2)] +
+                m[row * 4 + 3] * s[col + (4 * 3)];
         }
     }
     
+    return(result);
+}
+
+inline mat4
+mat4_translation(mat4 m, v3 t)
+{
+    mat4 result = mat4_identity();
+    result.m03 = t.x;
+    result.m13 = t.y;
+    result.m23 = t.z;
+    result = mat4_multiply(result, m);
+    return(result);
+}
+
+inline mat4
+mat4_scale(mat4 m, v3 s)
+{
+    mat4 result = mat4_identity();
+    result.m00 = s.x;
+    result.m11 = s.y;
+    result.m22 = s.z;
+    result = mat4_multiply(result, m);
+    return(result);
+}
+
+inline mat4
+mat4_rotation(mat4 m, v3 axis, f32 radians)
+{
+    Assert(axis.x + axis.y + axis.z == 1);
+    
+    mat4 result = mat4_identity();
+    if(axis.x)
+    {
+        result.m11 = cos(radians);
+        result.m12 = -sin(radians);
+        result.m21 = sin(radians);
+        result.m22 = cos(radians);
+    }
+    else if(axis.y)
+    {
+        result.m00 = cos(radians);
+        result.m02 = sin(radians);
+        result.m20 = -sin(radians);
+        result.m22 = cos(radians);
+    }
+    else if(axis.z)
+    {
+        result.m00 = cos(radians);
+        result.m01 = -sin(radians);
+        result.m10 = sin(radians);
+        result.m11 = cos(radians);
+    }
+    
+    result = mat4_multiply(result, m);
+    return(result);
+}
+
+inline mat4
+shear_matrix(f32 xy, f32 xz,
+             f32 yx, f32 yz,
+             f32 zx, f32 zy)
+{
+    mat4 result = mat4_identity();
+    result.m01 = xy;
+    result.m02 = xz;
+    result.m10 = yx;
+    result.m12 = yz;
+    result.m20 = zx;
+    result.m21 = zy;
     return(result);
 }
 
@@ -347,24 +424,8 @@ mat2_submat3(mat3 matrix, int row_ignore, int col_ignore)
     return(result);
 }
 
-inline f32 det(mat2 m);
-inline f32 det(mat3 m);
-
-inline f32
-cofactor(mat3 m, int row, int col)
-{
-    mat2 m_sub = mat2_submat3(m, row, col);
-    f32 result = det(m_sub) * pow(-1, row + col);
-    return(result);
-}
-
-inline f32
-cofactor(mat4 m, int row, int col)
-{
-    mat3 m_sub = mat3_submat4(m, row, col);
-    f32 result = det(m_sub) * pow(-1, row + col);
-    return(result);
-}
+inline f32 cofactor(mat3 m, int row, int col);
+inline f32 cofactor(mat4 m, int row, int col);
 
 inline f32
 det(mat2 m)
@@ -396,11 +457,97 @@ det(mat4 m)
 }
 
 inline f32
+cofactor(mat4 m, int row, int col)
+{
+    mat3 m_sub = mat3_submat4(m, row, col);
+    f32 result = det(m_sub) * pow(-1, row + col);
+    return(result);
+}
+
+inline f32
+cofactor(mat3 m, int row, int col)
+{
+    mat2 m_sub = mat2_submat3(m, row, col);
+    f32 result = det(m_sub) * pow(-1, row + col);
+    return(result);
+}
+
+inline f32
 minor(mat3 m, int minor_row, int minor_col)
 {
     mat2 m_sub = mat2_submat3(m, minor_row, minor_col);
     f32 result = det(m_sub);
     return(result);
+}
+
+inline mat3
+mat3_inverse(mat3 m)
+{
+    f32 d = det(m);
+    Assert(d);
+    
+    mat3 result;
+    f32 *r = &result.m00;
+    
+    f32 c;
+    for(int row = 0; row < 3; ++row)
+    {
+        for(int col = 0; col < 3; ++col)
+        {
+            c = cofactor(m, row, col);
+            r[row * 4 + col] = c / d;
+        }
+    }
+    
+    return(result);
+}
+
+inline mat4
+mat4_inverse(mat4 m)
+{
+    f32 d = det(m);
+    Assert(d);
+    
+    mat4 result;
+    f32 *r = &result.m00;
+    
+    f32 c;
+    for(int row = 0; row < 4; ++row)
+    {
+        for(int col = 0; col < 4; ++col)
+        {
+            c = cofactor(m, row, col);
+            r[row + col * 4] = c / d;
+        }
+    }
+    
+    return(result);
+}
+
+inline f32
+radians(f32 degrees)
+{
+    f32 result = (degrees / 180.0f) * M_PI;
+    return(result);
+}
+
+inline f32
+fmin(f32 a, f32 b)
+{
+    return a < b ? a : b;
+}
+
+inline mat4
+ortho_matrix(f32 bottom, f32 top, f32 left, f32 right, f32 near, f32 far)
+{
+    mat4 result = mat4_identity();
+    result.m00 = 2 / (right - left);
+    result.m11 = 2 / (top - bottom);
+    result.m22 = -2 / (far - near);
+    result.m30 = -(right + left) / (right - left);
+    result.m31 = -(top + bottom) / (top - bottom);
+    result.m32 = -(far + near) / (far - near);
+    return result;
 }
 
 #endif //MATH_FUNCTIONS_H

@@ -1,6 +1,5 @@
 #include "types.h"
 #include "macros.h"
-#include "math.h"
 #include "math_functions.h"
 #include "qpc.h"
 
@@ -30,35 +29,53 @@ struct pixel_buffer
     f32 *data;
     int width;
     int height;
+    int pitch;
 };
 
-global_variable unsigned char global_pixel_data[1080 * 720 * 4];
 internal void write_ppm(f32 *, int, int, char *);
 internal pixel_buffer new_pixel_buffer(int width, int height);
 internal void clear(pixel_buffer buffer, color4 color);
+internal void set_pixel(pixel_buffer buffer, int x, int y, color4 color);
 
 int main()
 {
-    mat4 m = new_mat4(-2, -8, 3, 5,
-                      -3, 1, 7, 3,
-                      1, 2, -9, 6,
-                      -6, 7, 7, -9);
-    f32 c00 = cofactor(m, 0, 0);
-    f32 c01 = cofactor(m, 0, 1);
-    f32 c02 = cofactor(m, 0, 2);
-    f32 c03 = cofactor(m, 0, 3);
-    f32 dm = det(m);
-    
-    Assert(c00 == 690);
-    Assert(c01 == 447);
-    Assert(c02 == 210);
-    Assert(c03 == 51);
-    Assert(dm == -4071);
-    
     pixel_buffer buffer = new_pixel_buffer(1080, 720);
-    clear(buffer, {0.35f, 0.70f, 1.0f, 1.0f});
+    
+    mat4 ortho = ortho_matrix(0, 720, 0, 1080, 0, 1);
+    ortho = mat4_transpose(ortho);
+    v4 position = point(-1, -1, 0);
+    //u32 x = min(buffer.width - 1, (ndc.x + 1) * 0.5 * buffer.width);
+    //u32 y = min(buffer.height - 1, (ndc.y + 1) * 0.5 * buffer.height);
+    
+    clear(buffer, {0.0f, 0.0f, 0.0f, 1.0f});
+    
+    v4 ndc;
+    for(int row = 0; row < 720; ++row)
+    {
+        ndc = v4_mat4_multiply(position, ortho);
+        ndc.x /= ndc.z;
+        ndc.y /= ndc.z;
+        u32 x = (ndc.x * 0.5 * buffer.width) + 0.5f;
+        u32 y = (ndc.y * 0.5 * buffer.height) + 0.5f;
+        set_pixel(buffer, x, y, {1.0f, 1.0f, 1.0f, 1.0f});
+        position.y++;
+    }
+    
     write_ppm(buffer.data, buffer.width, buffer.height, "test.ppm");
     return(0);
+}
+
+internal void
+set_pixel(pixel_buffer buffer, int x, int y, color4 color)
+{
+    if((x >= buffer.width || x < 0) || (y >= buffer.height || y < 0))
+        return;
+    
+    f32 *row = &buffer.data[0];
+    f32 *pixel = row + buffer.pitch * y + x * 4;
+    *(pixel)     = color.r;
+    *(pixel + 1) = color.g;
+    *(pixel + 2) = color.b;
 }
 
 internal void
@@ -84,6 +101,7 @@ internal pixel_buffer
 new_pixel_buffer(int width, int height)
 {
     pixel_buffer result;
+    result.pitch = width * 4;
     int buffer_size = sizeof(f32) * width * height * 4;
     result.data = (f32 *)malloc(buffer_size);
     memset(result.data, 0, buffer_size);
