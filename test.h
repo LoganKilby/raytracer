@@ -61,16 +61,18 @@ bool mat4_equality(glm::mat4 a, glm::mat4 b)
 
 bool v4_equality(glm::vec4 v, glm::vec4 u)
 {
-    f32 fe2 = FLT_EPSILON;
+    f32 e = FLT_EPSILON;
+    f32 e2 = e * 2;
+    
     f32 x = fabs(v.x - u.x);
     f32 y = fabs(v.y - u.y);
     f32 z = fabs(v.z - u.z);
     f32 w = fabs(v.w - u.w);
     
-    bool result_x = x < FLT_EPSILON;
-    bool result_y = y < FLT_EPSILON;
-    bool result_z = z < FLT_EPSILON;
-    bool result_w = w < FLT_EPSILON;
+    bool result_x = x < e2;
+    bool result_y = y < e2;
+    bool result_z = z < e2;
+    bool result_w = w < e2;
     
     
     return(result_x && result_y && result_z && result_w);

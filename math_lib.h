@@ -16,4 +16,10 @@ typedef glm::vec3 v3;
 #define point(x, y, z) glm::vec4(x, y, z, 1)
 #define vector(x, y, z) glm::vec4(x, y, z, 0)
 
+internal glm::mat3
+normal_matrix(glm::mat4 &m)
+{
+    return glm::transpose(glm::inverse(glm::mat3(m)));
+}
+
 #endif //MATH_LIB_H

@@ -1,16 +1,12 @@
 #include "ray.h"
 
-internal glm::vec4
-sphere_normal(sphere s, glm::vec4 w_point)
+internal v4
+sphere_normal(glm::mat3 normal_matrix, glm::vec4 w_point)
 {
-    v3 p = {w_point.x, w_point.y, w_point.z};
-    glm::mat4 inv_transform = glm::inverse(s.transform);
-    glm::vec4 obj_space_point = w_point * inv_transform;
-    glm::vec4 obj_normal = obj_space_point - glm::vec4(0, 0, 0, 1.0f);//point(0, 0, 0);
-    glm::vec4 world_normal = obj_normal * glm::transpose(inv_transform);
-    world_normal.w = 0;
+    v3 p = v3(w_point);
+    v3 world_normal = p * normal_matrix;
     world_normal = glm::normalize(world_normal);
-    return world_normal;
+    return v4(world_normal, 0);
 }
 
 internal sphere

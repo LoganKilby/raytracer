@@ -41,15 +41,16 @@ void rotation()
     TrackResult(result);
 }
 
-void sphere_normal()
+void sphere_normal_simple()
 {
     sphere s = new_sphere();
-    v4 nx = sphere_normal(s, point(1, 0, 0));
-    v4 ny = sphere_normal(s, point(0, 1, 0));
-    v4 nz = sphere_normal(s, point(0, 0, 1));
+    glm::mat3 normal_matrix = glm::inverse(glm::transpose(glm::mat3(s.transform)));
+    v4 nx = sphere_normal(normal_matrix, point(1, 0, 0));
+    v4 ny = sphere_normal(normal_matrix, point(0, 1, 0));
+    v4 nz = sphere_normal(normal_matrix, point(0, 0, 1));
     
     f32 sqrt3 = sqrt(3) / 3;
-    v4 na = sphere_normal(s, point(sqrt3, sqrt3, sqrt3));
+    v4 na = sphere_normal(normal_matrix, point(sqrt3, sqrt3, sqrt3));
     
     bool result = v4_equality(nx, vector(1, 0, 0));
     result &= v4_equality(ny, vector(0, 1, 0));
@@ -60,10 +61,29 @@ void sphere_normal()
     TrackResult(result);
 }
 
+void sphere_normal_translated()
+{
+    sphere s = new_sphere();
+    s.transform = glm::translate(s.transform, v3(0, 1, 0));
+    
+    glm::mat3 n_matrix = normal_matrix(s.transform);
+    
+    v4 world_point = point(0, 1.70711, -0.70711);
+    v4 object_point = glm::inverse(s.transform) * world_point;
+    v4 object_normal = object_point - point(0, 0, 0);
+    v4 world_normal = glm::transpose(glm::inverse(s.transform)) * object_normal;
+    world_normal.w = 0;
+    v4 n = normalize(world_normal);
+    
+    bool result = v4_equality(n, vector(0, 0.70711, -0.70711));
+    TrackResult(result);
+}
+
 int main()
 {
     matrix_mult();
     rotation();
-    sphere_normal();
+    //sphere_normal_simple();
+    sphere_normal_translated();
     printf("%d tests ran.\n", tests_ran);
 }
