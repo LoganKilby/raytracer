@@ -1,23 +1,35 @@
 #include "ray.h"
 
-internal v4
-sphere_normal(sphere s, v4 w_point)
+internal glm::vec4
+sphere_normal(sphere s, glm::vec4 w_point)
 {
     v3 p = {w_point.x, w_point.y, w_point.z};
-    mat3 inv_transform = mat3_inverse(mat3_submat4(s.transform));
-    v3 obj_space_point = v3_mat3_multiply(p, inv_transform);
-    v3 obj_normal = v3_sub(obj_space_point, point3(0, 0, 0));
-    v3 world_normal = v3_mat3_multiply(obj_normal, mat3_transpose(inv_transform));
-    return v4_normalize(world_normal);
+    glm::mat4 inv_transform = glm::inverse(s.transform);
+    glm::vec4 obj_space_point = w_point * inv_transform;
+    glm::vec4 obj_normal = obj_space_point - glm::vec4(0, 0, 0, 1.0f);//point(0, 0, 0);
+    glm::vec4 world_normal = obj_normal * glm::transpose(inv_transform);
+    world_normal.w = 0;
+    world_normal = glm::normalize(world_normal);
+    return world_normal;
+}
+
+internal sphere
+new_sphere(v4 origin = v4(0, 0, 0, 1), f32 radius = 1)
+{
+    sphere s;
+    s.origin = origin;
+    s.radius = radius;
+    s.transform = mat4_identity();
+    return s;
 }
 
 inline ray
-transform_ray(ray r, mat4 m)
+transform_ray(ray r, glm::mat4 m)
 {
-    mat4 inv_m = mat4_inverse(m);
+    glm::mat4 inv_m = glm::inverse(m);
     ray result;
-    result.origin = v4_mat4_multiply(r.origin, inv_m);
-    result.direction = v4_mat4_multiply(r.direction, inv_m);
+    result.origin = r.origin * inv_m;
+    result.direction = r.direction * inv_m;
     return result;
 }
 
@@ -26,10 +38,10 @@ ray_sphere_intersection(ray _ray, sphere s, intersection *out)
 {
     ray r = transform_ray(_ray, s.transform);
     
-    f32 a = v4_dot(r.direction, r.direction);
-    v4 sphere_to_ray = v4_sub(r.origin, s.origin);
-    f32 b = 2 * v4_dot(r.direction, sphere_to_ray);
-    f32 c = v4_dot(sphere_to_ray, sphere_to_ray) - 1;
+    f32 a = glm::dot(r.direction, r.direction);
+    glm::vec4 sphere_to_ray = r.origin - s.origin;
+    f32 b = 2 * glm::dot(r.direction, sphere_to_ray);
+    f32 c = glm::dot(sphere_to_ray, sphere_to_ray) - 1;
     f32 d = b * b - 4 * a * c;
     
     v4 result = {};
@@ -72,20 +84,20 @@ sort_hits(f32 *t, int count)
 }
 
 inline ray
-ray_translate(ray r, mat4 m)
+ray_translate(ray r, glm::mat4 m)
 {
     ray result;
-    result.origin = v4_mat4_multiply(r.origin, m);
+    result.origin = r.origin * m;
     result.direction = r.direction;
     return result;
 }
 
 inline ray
-ray_scale(ray r, mat4 m)
+ray_scale(ray r, glm::mat4 m)
 {
     ray result;
-    result.origin = v4_mat4_multiply(r.origin, m);
-    result.direction = v4_mat4_multiply(r.direction, m);
+    result.origin = r.origin * m;
+    result.direction = r.direction * m;
     return result;
 }
 

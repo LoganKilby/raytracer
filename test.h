@@ -45,38 +45,41 @@ struct test
 global_variable s32 tests_ran = 0;
 #define TrackResult(Status) { test t(__COUNTER__, __func__, __LINE__, Status); tests_ran++;}
 
-bool mat4_equality(mat4 mat_a, mat4 mat_b)
+bool mat4_equality(glm::mat4 a, glm::mat4 b)
 {
-    f32 *a = &mat_a.m00;
-    f32 *b = &mat_b.m00;
-    
     bool result = 1;
     for(int row = 0; row < 4; ++row)
     {
         for(int col = 0; col < 4; ++col)
         {
-            result &= (a[row * 4 + col] == b[row * 4 + col]);
+            result &= (a[row][col] == b[row][col]);
         }
     }
     
     return result;
 }
 
-bool v4_equality(v4 v, v4 u)
+bool v4_equality(glm::vec4 v, glm::vec4 u)
 {
-    f32 fe2 = FLT_EPSILON * 2.0f;
-    bool x = fabs(v.x - u.x) < fe2;
-    bool y = fabs(v.y - u.y) < fe2;
-    bool z = fabs(v.z - u.z) < fe2;
-    bool w = fabs(v.w - u.w) < fe2;
+    f32 fe2 = FLT_EPSILON;
+    f32 x = fabs(v.x - u.x);
+    f32 y = fabs(v.y - u.y);
+    f32 z = fabs(v.z - u.z);
+    f32 w = fabs(v.w - u.w);
     
-    return(x && y && z && w);
+    bool result_x = x < FLT_EPSILON;
+    bool result_y = y < FLT_EPSILON;
+    bool result_z = z < FLT_EPSILON;
+    bool result_w = w < FLT_EPSILON;
+    
+    
+    return(result_x && result_y && result_z && result_w);
 }
 
-bool mat3_equality(mat3 mat_a, mat3 mat_b)
+bool mat3_equality(glm::mat3 mat_a, glm::mat3 mat_b)
 {
-    f32 *a = &mat_a.m00;
-    f32 *b = &mat_b.m00;
+    f32 *a = &mat_a[0][0];
+    f32 *b = &mat_b[0][0];
     
     bool result = 1;
     for(int row = 0; row < 3; ++row)
