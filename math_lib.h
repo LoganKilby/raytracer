@@ -14,7 +14,9 @@ typedef glm::vec3 v3;
 
 #define mat4_identity() glm::mat4(1.0f)
 #define point(x, y, z) glm::vec4(x, y, z, 1)
+#define color point
 #define vector(x, y, z) glm::vec4(x, y, z, 0)
+#define PI (float)M_PI
 
 internal glm::mat3
 normal_matrix(glm::mat4 &m)

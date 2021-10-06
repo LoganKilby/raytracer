@@ -1,8 +1,8 @@
 #include "types.h"
 #include "macros.h"
 #include "qpc.h"
+
 #include "ray.cpp"
-#include "math_lib.h"
 
 struct color4
 {

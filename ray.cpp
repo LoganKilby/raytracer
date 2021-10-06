@@ -1,21 +1,24 @@
 #include "ray.h"
+#include "shading.h"
 
 internal v4
-sphere_normal(glm::mat3 normal_matrix, glm::vec4 w_point)
+sphere_normal(glm::mat4 transform, v4 w_point)
 {
-    v3 p = v3(w_point);
-    v3 world_normal = p * normal_matrix;
-    world_normal = glm::normalize(world_normal);
-    return v4(world_normal, 0);
+    // TODO: eberly
+    w_point = glm::inverse(transform) * w_point;
+    w_point = glm::transpose(glm::inverse(transform)) * w_point;
+    w_point.w = 0;
+    return w_point;
 }
 
 internal sphere
-new_sphere(v4 origin = v4(0, 0, 0, 1), f32 radius = 1)
+new_sphere(v4 origin = point(0, 0, 0), f32 radius = 1)
 {
     sphere s;
     s.origin = origin;
     s.radius = radius;
     s.transform = mat4_identity();
+    s.material = material();
     return s;
 }
 
@@ -71,12 +74,6 @@ ray_hit(f32 t0, f32 t1)
     {
         return fmax(t0, t1);
     }
-}
-
-internal void
-sort_hits(f32 *t, int count)
-{
-    // sort by lowest non negative intersection (t)
 }
 
 inline ray
