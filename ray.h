@@ -5,6 +5,7 @@
 
 #include "math_lib.h"
 #include "types.h"
+#include "shading.h"
 
 global_variable s32 global_entity_id = 0;
 
@@ -20,6 +21,7 @@ struct sphere
     f32 radius;
     s32 id;
     glm::mat4 transform;
+    material material;
 };
 
 struct intersection
