@@ -4,6 +4,7 @@
 #include "stdio.h"
 #include "test.h"
 #include "ray.cpp"
+#include "shading.cpp"
 
 void matrix_mult()
 {
@@ -41,41 +42,83 @@ void rotation()
     TrackResult(result);
 }
 
-void sphere_normal_simple()
-{
-    sphere s = new_sphere();
-    glm::mat3 normal_matrix = glm::inverse(glm::transpose(glm::mat3(s.transform)));
-    v4 nx = sphere_normal(normal_matrix, point(1, 0, 0));
-    v4 ny = sphere_normal(normal_matrix, point(0, 1, 0));
-    v4 nz = sphere_normal(normal_matrix, point(0, 0, 1));
-    
-    f32 sqrt3 = sqrt(3) / 3;
-    v4 na = sphere_normal(normal_matrix, point(sqrt3, sqrt3, sqrt3));
-    
-    bool result = v4_equality(nx, vector(1, 0, 0));
-    result &= v4_equality(ny, vector(0, 1, 0));
-    result &= v4_equality(nz, vector(0, 0, 1));
-    result &= v4_equality(na, vector(sqrt3, sqrt3, sqrt3));
-    result &= v4_equality(na, glm::normalize(na));
-    
-    TrackResult(result);
-}
-
 void sphere_normal_translated()
 {
     sphere s = new_sphere();
     s.transform = glm::translate(s.transform, v3(0, 1, 0));
+    glm::mat4 m = s.transform;
     
-    glm::mat3 n_matrix = normal_matrix(s.transform);
+    v4 n = sphere_normal(s.transform, point(0, 1.70711, -0.70711));
     
-    v4 world_point = point(0, 1.70711, -0.70711);
-    v4 object_point = glm::inverse(s.transform) * world_point;
-    v4 object_normal = object_point - point(0, 0, 0);
-    v4 world_normal = glm::transpose(glm::inverse(s.transform)) * object_normal;
-    world_normal.w = 0;
-    v4 n = normalize(world_normal);
+    v4 wp = point(0, 1.70711, -0.70711);
+    wp = glm::inverse(s.transform) * wp;
+    wp = glm::transpose(glm::inverse(s.transform)) * wp;
+    wp.w = 0;
     
-    bool result = v4_equality(n, vector(0, 0.70711, -0.70711));
+    bool result = v3_equality(n, vector(0, 0.70711, -0.70711));
+    TrackResult(result);
+}
+
+void sphere_normal_rotated()
+{
+    sphere s = new_sphere();
+    s.transform = glm::scale(s.transform, v3(1, 0.5f, 1));
+    s.transform = glm::rotate(s.transform, (float)(M_PI / 5.0f), v3(0, 0, 1));
+    
+    v4 n = sphere_normal(s.transform, point(0, (float)sqrt(2.0f)/2.0f, -(float)sqrt(2.0f)/2.0f));
+    n = glm::normalize(n);
+    bool result = v4_equality(n, vector(0, 0.97014, -0.24254));
+    TrackResult(result);
+}
+
+void reflect_test()
+{
+    v4 v = vector(1, -1, 0);
+    v4 n = vector(0, 1, 0);
+    v4 r = glm::reflect(v, n);
+    bool result = v4_equality(r, vector(1, 1, 0));
+    TrackResult(result);
+}
+
+void reflect_test2()
+{
+    // slanted surface
+    f32 f = sqrt(2)/2;
+    v4 v = vector(0, -1, 0);
+    v4 n = vector(f, f, 0);
+    v4 r = glm::reflect(v, n);
+    bool result = v4_equality(r, vector(1, 0, 0));
+    TrackResult(result);
+}
+
+void color_calc0()
+{
+    v4 view_dir = vector(0, 0, -1);
+    v4 surface_normal = vector(0, 0, -1);
+    point_light light;
+    light.position = point(0, 0, -10);
+    light.intensity = glm::vec4(1.0f);
+    material m = default_material();
+    // after lighting
+    
+    v4 position = glm::vec4(0.0f);
+    v4 pixel_color = calc_point_light(m, light, position, view_dir, surface_normal);
+    bool result = v4_equality(pixel_color, v4(1.9f, 1.9f, 1.9f, 1.0f));
+    TrackResult(result);
+}
+
+void color_calc1()
+{
+    f32 f = sqrt(2)/2;
+    v4 eye = vector(0, f, -f);
+    v4 surface_normal = vector(0, 0, -1);
+    point_light light;
+    light.position = point(0, 0, -10);
+    light.intensity = glm::vec4(1.0f);
+    material m = material();
+    v4 position = point(0, 0, 0);
+    v4 pixel_color = calc_point_light(m, light, position, eye, surface_normal);
+    bool result = v4_equality(pixel_color, v4(1, 1, 1, 1));
     TrackResult(result);
 }
 
@@ -83,7 +126,11 @@ int main()
 {
     matrix_mult();
     rotation();
-    //sphere_normal_simple();
     sphere_normal_translated();
-    printf("%d tests ran.\n", tests_ran);
+    sphere_normal_rotated();
+    reflect_test();
+    reflect_test2();
+    color_calc0();
+    color_calc1();
+    printf("%d tests completed.\n", tests_ran);
 }
