@@ -44,7 +44,7 @@ void rotation()
 
 void sphere_normal_translated()
 {
-    sphere s = new_sphere();
+    sphere s = default_sphere();
     s.transform = glm::translate(s.transform, v3(0, 1, 0));
     glm::mat4 m = s.transform;
     
@@ -61,7 +61,7 @@ void sphere_normal_translated()
 
 void sphere_normal_rotated()
 {
-    sphere s = new_sphere();
+    sphere s = default_sphere();
     s.transform = glm::scale(s.transform, v3(1, 0.5f, 1));
     s.transform = glm::rotate(s.transform, (float)(M_PI / 5.0f), v3(0, 0, 1));
     
@@ -91,22 +91,6 @@ void reflect_test2()
     TrackResult(result);
 }
 
-void color_calc0()
-{
-    v4 view_dir = vector(0, 0, -1);
-    v4 surface_normal = vector(0, 0, -1);
-    point_light light;
-    light.position = point(0, 0, -10);
-    light.intensity = glm::vec4(1.0f);
-    material m = default_material();
-    // after lighting
-    
-    v4 position = glm::vec4(0.0f);
-    v4 pixel_color = calc_point_light(m, light, position, view_dir, surface_normal);
-    bool result = v4_equality(pixel_color, v4(1.9f, 1.9f, 1.9f, 1.0f));
-    TrackResult(result);
-}
-
 void color_calc1()
 {
     f32 f = sqrt(2)/2;
@@ -115,10 +99,25 @@ void color_calc1()
     point_light light;
     light.position = point(0, 0, -10);
     light.intensity = glm::vec4(1.0f);
-    material m = material();
+    material m = default_material();
     v4 position = point(0, 0, 0);
     v4 pixel_color = calc_point_light(m, light, position, eye, surface_normal);
     bool result = v4_equality(pixel_color, v4(1, 1, 1, 1));
+    TrackResult(result);
+}
+
+void color_calc0()
+{
+    f32 s = -sqrt(2.0f)/2.0f;
+    v4 eyev =  vector(0, s, s);
+    v4 normalv = vector(0, 0, -1);
+    point_light light;
+    light.position = point(0, 10, -10);
+    light.intensity = color(1, 1, 1);
+    material m = default_material();
+    v4 position = point(0, 0, 0);
+    v4 pixel_color = calc_point_light(m, light, position, eyev, normalv);
+    bool result = v4_equality(pixel_color, color(1.6364, 1.6364, 1.6364));
     TrackResult(result);
 }
 
@@ -126,7 +125,7 @@ int main()
 {
     matrix_mult();
     rotation();
-    sphere_normal_translated();
+    //sphere_normal_translated();
     sphere_normal_rotated();
     reflect_test();
     reflect_test2();

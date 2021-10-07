@@ -38,10 +38,5 @@ struct intersection_list
     intersection i[10];
 };
 
-inline glm::vec4
-ray_position(ray r, f32 dt)
-{
-    return r.origin + (r.direction - dt);
-}
 
 #endif //RAY_H

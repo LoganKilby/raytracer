@@ -18,27 +18,6 @@ struct material
     f32 shininess;
 };
 
-inline material
-default_material()
-{
-    material m;
-    m.color = color(1, 1, 1);
-    m.ambient = 0.1f;
-    m.diffuse = 0.9f;
-    m.specular = 0.9f;
-    m.shininess = 100.0f;
-    return m;
-}
-
-inline v4
-color_multiply(v4 a, v4 b)
-{
-    v4 result;
-    result.r = a.r * b.r;
-    result.g = a.g * b.g;
-    result.b = a.b * b.b;
-    result.w = a.a * b.a;
-    return result;
-}
+inline material default_material();
 
 #endif //SHADING_H

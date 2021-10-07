@@ -5,20 +5,21 @@ internal v4
 sphere_normal(glm::mat4 transform, v4 w_point)
 {
     // TODO: eberly
-    w_point = glm::inverse(transform) * w_point;
-    w_point = glm::transpose(glm::inverse(transform)) * w_point;
-    w_point.w = 0;
-    return w_point;
+    v4 normal = glm::inverse(transform) * w_point;
+    normal = glm::transpose(glm::inverse(transform)) * normal;
+    normal.w = 0;
+    return glm::normalize(normal);
 }
 
 internal sphere
-new_sphere(v4 origin = point(0, 0, 0), f32 radius = 1)
+default_sphere(v4 origin = point(0, 0, 0), f32 radius = 1)
 {
     sphere s;
     s.origin = origin;
     s.radius = radius;
     s.transform = mat4_identity();
-    s.material = material();
+    s.material = default_material();
+    s.id = -1;
     return s;
 }
 
@@ -74,6 +75,12 @@ ray_hit(f32 t0, f32 t1)
     {
         return fmax(t0, t1);
     }
+}
+
+inline glm::vec4
+ray_hit_position(ray r, f32 t)
+{
+    return r.origin + (r.direction - t);
 }
 
 inline ray
