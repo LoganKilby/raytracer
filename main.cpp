@@ -1,6 +1,7 @@
 #include "types.h"
 #include "macros.h"
 #include "qpc.h"
+#include "math_lib.h"
 
 #include "ray.cpp"
 #include "shading.cpp"
@@ -27,7 +28,7 @@ draw_scene(pixel_buffer buffer)
     
     point_light light;
     light.intensity = color(1, 1, 1);
-    light.position = point(-10, 10, -10);
+    light.position = point(-10, 0, -5);
     
     f32 wall_z = 10.0f;
     f32 wall_size = 7.0f;

@@ -6,7 +6,8 @@
 #define _USE_MATH_DEFINES
 #include "math.h"
 
-#include "glm.hpp"
+#include "fwd.hpp"
+#include "mat4x4.hpp"
 #include "matrix_transform.hpp"
 
 typedef glm::vec4 v4;

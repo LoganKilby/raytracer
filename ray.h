@@ -3,7 +3,6 @@
 #ifndef RAY_H
 #define RAY_H
 
-#include "math_lib.h"
 #include "types.h"
 #include "shading.h"
 
@@ -11,8 +10,8 @@ global_variable s32 global_entity_id = 0;
 
 struct ray
 {
-    glm::vec4 origin;
-    glm::vec4 direction;
+    v4 origin;
+    v4 direction;
 };
 
 struct sphere
