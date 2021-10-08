@@ -18,11 +18,28 @@ typedef glm::vec3 v3;
 #define color point
 #define vector(x, y, z) glm::vec4(x, y, z, 0)
 #define PI (float)M_PI
+#define TWO_PI 2*M_PI
 
-internal glm::mat3
-normal_matrix(glm::mat4 &m)
+inline f64 
+_phi(f64 x, f64 z)
 {
-    return glm::transpose(glm::inverse(glm::mat3(m)));
+    double phi = atan2(x, z);
+    if(phi < 0.0f)
+        phi += TWO_PI;
+    
+    return phi;
+}
+
+inline s32
+rand_int()
+{
+    return rand();
+}
+
+inline s32
+rand_float()
+{
+    return (float)rand() / (float)RAND_MAX;
 }
 
 #endif //MATH_LIB_H
