@@ -7,3 +7,4 @@ build/main.obj
 *.ppm
 *.sh
 build/test.obj
+*.ctm
