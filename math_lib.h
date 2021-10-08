@@ -19,12 +19,29 @@ typedef glm::highp_dvec3 dv3;
 
 #define mat4_identity() glm::mat4(1.0f)
 #define PI (float)M_PI
+#define TWO_PI 2*M_PI
 #define EPSILON 10e-6
 
-inline glm::mat3
-normal_matrix(glm::mat4 &m)
+inline f64 
+_phi(f64 x, f64 z)
 {
-    return glm::transpose(glm::inverse(glm::mat3(m)));
+    double phi = atan2(x, z);
+    if(phi < 0.0f)
+        phi += TWO_PI;
+    
+    return phi;
+}
+
+inline int
+rand_int()
+{
+    return rand();
+}
+
+inline int
+rand_float()
+{
+    return (float)rand() / (float)RAND_MAX;
 }
 
 inline v3
