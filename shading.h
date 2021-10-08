@@ -5,13 +5,13 @@
 
 struct point_light
 {
-    v4 intensity;
-    v4 position;
+    v3 intensity;
+    v3 position;
 };
 
 struct material
 {
-    v4 color;
+    v3 color;
     f32 ambient;
     f32 diffuse;
     f32 specular;

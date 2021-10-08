@@ -2,7 +2,7 @@
 
 ctime -begin timing.ctm
 
-set opts=-FC -GR- -EHa- -nologo -Zi -DRAYTRACER_SLOW /IC:\Library\glm\glm /IC:\Library\glm\glm\gtc 
+set opts=-FC -GR- -EHa- -nologo -Zi -DRAYTRACER_SLOW /IC:\Library\glm\glm /IC:\Library\glm\glm\gtc /IC:\Library\glm\glm\ext
 
 REM /IC:\Library\glm\glm\gtx
 set code=%cd%

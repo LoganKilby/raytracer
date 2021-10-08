@@ -6,36 +6,49 @@
 #include "types.h"
 #include "shading.h"
 
-global_variable s32 global_entity_id = 0;
+global_variable int global_entity_id = 0;
 
 struct ray
 {
-    v4 origin;
-    v4 direction;
+    v3 origin;
+    
+    // NOTE: "Ray directions are always (0, 0, -1)"
+    v3 direction;
 };
 
 struct sphere
 {
-    v4 origin;
+    v3 origin;
     f32 radius;
-    s32 id;
+    int id;
     glm::mat4 transform;
     material material;
 };
 
-struct intersection
+struct geo
 {
+    v3 color; // TODO: material
+};
+
+struct ray_hit
+{
+    int object_id;
     f32 t0;
     f32 t1;
-    s32 object_id;
+    f32 tmin;
+    
+    v3 local_hit_point;
+    v3 normal;
+    v3 rgb; // ?
 };
 
-struct intersection_list
+inline v2
+ray_screen_coordinates(int col, int row, int width, int height)
 {
-    int count;
-    // max intersections?
-    intersection i[10];
-};
-
+    v2 result;
+    result.x = (col - width / 2.0f) + 0.5f;
+    result.y = (row - height / 2.0f) + 0.5f;
+    return result;
+}
 
 #endif //RAY_H

@@ -43,7 +43,7 @@ struct test
     }
 };
 
-global_variable s32 tests_ran = 0;
+global_variable int tests_ran = 0;
 #define TrackResult(Status) { test t(__COUNTER__, __func__, __FILE__, __LINE__, Status); tests_ran++;}
 
 bool mat4_equality(glm::mat4 a, glm::mat4 b)
