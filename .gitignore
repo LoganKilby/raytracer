@@ -8,3 +8,4 @@ build/main.obj
 *.sh
 build/test.obj
 *.ctm
+*.ctm
