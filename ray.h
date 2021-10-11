@@ -25,6 +25,13 @@ struct sphere
     material material;
 };
 
+struct plane
+{
+    v3 origin;
+    v3 normal;
+    material material;
+};
+
 struct geo
 {
     v3 color; // TODO: material
@@ -39,7 +46,14 @@ struct ray_hit
     
     v3 local_hit_point;
     v3 normal;
-    v3 rgb; // ?
+    v4 rgb; // ?
+};
+
+struct ray_hit_group
+{
+    ray_hit *hits;
+    int count;
+    int max_count;
 };
 
 inline v2

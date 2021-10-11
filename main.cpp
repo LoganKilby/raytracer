@@ -12,18 +12,18 @@ int main()
 {
     f32 gamma = 1.0f;;
     pixel_buffer buffer;
-    scene0(&buffer);
+    scene1(&buffer);
     write_ppm(buffer.data, buffer.width, buffer.height, gamma, "test.ppm");
     return 0;
 }
 
 inline void
-set_pixel(pixel_buffer buffer, f32 x, f32 y, v4 color)
+set_pixel(pixel_buffer buffer, int col, int row, v4 color)
 {
-    if((x >= buffer.width || x < 0) || ((y >= buffer.height || y < 0)))
+    if((col >= buffer.width || col < 0) || ((row >= buffer.height || row < 0)))
         return;
     
-    v4 *pixel = (v4 *)&buffer.data[0] + (u32)y * buffer.width + (u32)x;
+    v4 *pixel = (v4 *)&buffer.data[buffer.width * buffer.height * 4] - (row * buffer.width) - (buffer.width - col);
     *pixel = color;
 }
 
@@ -52,19 +52,6 @@ new_pixel_buffer(u32 width, u32 height)
     return result;
 }
 
-internal f32
-clampf(f32 x, f32 min, f32 max)
-{
-    if(x >= min && x <= max)
-    {
-        return x;
-    }
-    else 
-    {
-        return x < min ? min : max;
-    }
-}
-
 internal void
 write_ppm(f32 *pixel_data, int width, int height, f32 gamma, char *filename)
 {
@@ -84,6 +71,7 @@ write_ppm(f32 *pixel_data, int width, int height, f32 gamma, char *filename)
     int pitch = width * 4;
     u8 r, g, b;
     v4 pixel_color;
+    v3 *pixel;
     
     if(gamma != 1.0)
     {
@@ -94,10 +82,12 @@ write_ppm(f32 *pixel_data, int width, int height, f32 gamma, char *filename)
         {
             for(f32 *col = row; col < row + pitch; col += 4)
             {
-                v3_f32_pow((v3 *)col, inv_gamma);
-                r = (u8)(clampf(*(col), 0, 1) * 255);
-                g = (u8)(clampf(*(col + 1), 0, 1) * 255);
-                b = (u8)(clampf(*(col + 2), 0, 1) * 255);
+                pixel = (v3 *)col;
+                v3_f32_pow(pixel, inv_gamma);
+                
+                r = (u8)(clampf(pixel->r, 0, 1) * 255);
+                g = (u8)(clampf(pixel->g, 0, 1) * 255);
+                b = (u8)(clampf(pixel->b, 0, 1) * 255);
                 
                 fprintf(file_handle, "%u %u %u ", r, g, b);
             }
@@ -113,9 +103,11 @@ write_ppm(f32 *pixel_data, int width, int height, f32 gamma, char *filename)
         {
             for(f32 *col = row; col < row + pitch; col += 4)
             {
-                r = (u8)(clampf(*(col), 0, 1) * 255);
-                g = (u8)(clampf(*(col + 1), 0, 1) * 255);
-                b = (u8)(clampf(*(col + 2), 0, 1) * 255);
+                pixel = (v3 *)col;
+                
+                r = (u8)(clampf(pixel->r, 0, 1) * 255);
+                g = (u8)(clampf(pixel->g, 0, 1) * 255);
+                b = (u8)(clampf(pixel->b, 0, 1) * 255);
                 
                 fprintf(file_handle, "%u %u %u ", r, g, b);
             }

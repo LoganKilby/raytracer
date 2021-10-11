@@ -11,7 +11,7 @@ struct point_light
 
 struct material
 {
-    v3 color;
+    v4 color;
     f32 ambient;
     f32 diffuse;
     f32 specular;

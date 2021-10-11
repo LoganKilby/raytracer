@@ -5,6 +5,8 @@
 
 #include "stdio.h"
 
+#define array_count(x) (sizeof(x) / sizeof(x[0]))
+
 #ifdef RAYTRACER_SLOW
 #define AssertBreak *(int *)0 = 0;
 #define Assert(expression) { if(!(expression)) { printf("assertion triggered. exiting...\n"); AssertBreak; } }

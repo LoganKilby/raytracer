@@ -8,7 +8,7 @@ calc_point_light(material material, point_light light, v3 view_point, v3 eyev, v
     v3 normal = v3(surface_normal);
     v3 eye_vector = v3(eyev);
     
-    v3 effective_color = material.color * light.intensity;
+    v3 effective_color = v3(material.color) * light.intensity;
     v3 ambient_component = effective_color * material.ambient;
     
     v3 light_direction = glm::normalize(light.position - view_point);
@@ -29,7 +29,7 @@ inline material
 default_material()
 {
     material m;
-    m.color = v3(1, 1, 1);
+    m.color = v4(1, 1, 1, 0);
     m.ambient = 0.1f;
     m.diffuse = 0.9f;
     m.specular = 0.9f;

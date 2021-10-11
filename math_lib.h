@@ -58,4 +58,17 @@ v3_f32_pow(v3 *v, f32 s)
     v->z = glm::pow(v->z, s);
 }
 
+internal f32
+clampf(f32 x, f32 min, f32 max)
+{
+    if(x >= min && x <= max)
+    {
+        return x;
+    }
+    else 
+    {
+        return x < min ? min : max;
+    }
+}
+
 #endif //MATH_LIB_H
