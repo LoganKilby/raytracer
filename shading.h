@@ -39,16 +39,14 @@ struct pixel_sampler
     // shuffle samples ()
     
     // NOTE: num_samples > 1 ? "multi-jittered" : "regular" anti-aliasing
-    unsigned long count; // the current number of sample points used
     int jump; // random index jump
-    
     // NOTE: multi-jitter requires a perfect square # of samples (I think)
     int num_samples; // 16, 25
     int num_sets; // 83
-    
     // NOTE: the amount of space for samples is num_sets * num_samples
     v2 *samples; // sample points on a unit square
-    int *shuffled_indices; // shuffled samples array indices  
+    int *shuffled_indices; // shuffled samples array indices
+    unsigned long count; // the current number of sample points used
 };
 
 inline material default_material();

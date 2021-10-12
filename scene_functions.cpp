@@ -9,7 +9,7 @@ scene1_jitter(pixel_buffer *buffer)
     vp.pixel_size = 1;
     set_view_plane_gamma(&vp, 1);
     
-    pixel_sampler sampler = create_pixel_sampler(16, 83);
+    pixel_sampler sampler = noise_sampler(16, 83);
     
     plane p;
     p.origin = v3(0, 0, 0);
@@ -82,8 +82,9 @@ scene1_noise(pixel_buffer *buffer)
     
     view_plane vp;
     vp.pixel_size = 1;
-    vp.sample_count = 16;
     set_view_plane_gamma(&vp, 1);
+    
+    pixel_sampler sampler = noise_sampler(16, 83);
     
     plane p;
     p.origin = v3(0, 0, 0);
@@ -114,31 +115,43 @@ scene1_noise(pixel_buffer *buffer)
     v4 color;
     f32 x, y, z = 100;
     f32 view_x, view_y;
+    v2 sampled_noise;
+    int n = (int)sqrt((float)sampler.num_samples);
+    
     int width = buffer->width, height = buffer->height;
     for(int row = 0; row < buffer->height; ++row)
     {
         for(int col = 0; col < buffer->width; ++col)
         {
             color = {};
-            for(int samples = 0; samples < vp.sample_count; ++samples)
+            for(int up = 0; up < n; ++up)
             {
-                x = vp.pixel_size * (col - 0.5 * width + f32rand());
-                y = vp.pixel_size * (row - 0.5 * height + f32rand());
-                r.origin = v3(x, y, z);
-                ray_sphere_intersections(r, &world_geo[0], array_count(world_geo), &hit_group);
-                ray_plane_intersections(r, &p, 1, &hit_group);
-                
-                if(hit_group.count)
+                for(int across = 0; across < n; ++across)
                 {
-                    near_hit = nearest_hit(&hit_group);
-                    color += near_hit.rgb;
+                    sampled_noise = sample_unit_square(&sampler);
+                    
+                    x = vp.pixel_size * (col - 0.5 * width + (across + sampled_noise.x) / n);
+                    y = vp.pixel_size * (row - 0.5 * height + (up + sampled_noise.y) / n);
+                    
+                    //x = vp.pixel_size * (col - 0.5 * width + (across + 0.5) / n);
+                    //y = vp.pixel_size * (row - 0.5 * height + (up + 0.5) / n);
+                    
+                    r.origin = v3(x, y, z);
+                    ray_sphere_intersections(r, &world_geo[0], array_count(world_geo), &hit_group);
+                    ray_plane_intersections(r, &p, 1, &hit_group);
+                    
+                    if(hit_group.count)
+                    {
+                        near_hit = nearest_hit(&hit_group);
+                        color += near_hit.rgb;
+                    }
+                    
+                    hit_group.count = 0;
                 }
-                
-                hit_group.count = 0;
             }
             
             // Not using alpha here
-            color /= vp.sample_count;
+            color /= sampler.num_samples;
             set_pixel(*buffer, col, row, color);
         }
     }

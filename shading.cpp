@@ -152,7 +152,7 @@ sample_unit_square(pixel_sampler *sampler)
 internal void
 generate_shuffled_indices(pixel_sampler *sampler)
 {
-    if(sampler->num_samples = 1)
+    if(sampler->num_samples == 1)
     {
         for(int i = 0; i < sampler->num_sets; ++i)
         {
@@ -166,7 +166,7 @@ generate_shuffled_indices(pixel_sampler *sampler)
         int total_sets = sampler->num_sets;
         int samples_per_set = sampler->num_samples;
         // TODO: Arena, transient memory
-        u32 *indices = (u32 *)malloc(sizeof(u32) * samples_per_set);
+        int *indices = (int *)malloc(sizeof(int) * samples_per_set);
         
         for(int sample_index = 0; sample_index < samples_per_set; ++sample_index)
         {
@@ -175,7 +175,7 @@ generate_shuffled_indices(pixel_sampler *sampler)
         
         for(int set_index = 0; set_index < total_sets; ++set_index)
         {
-            u32_array_shuffle(indices, samples_per_set);
+            int_array_shuffle(indices, samples_per_set);
             for(int sample_index = 0; sample_index < samples_per_set; ++sample_index)
             {
                 sampler->shuffled_indices[set_index * samples_per_set + sample_index] = indices[sample_index];
@@ -209,12 +209,13 @@ generate_jittered_samples(pixel_sampler *sampler)
 internal void
 generate_noise_samples(pixel_sampler *sampler)
 {
-    //Assert(sampler->num_samples == 1);
-    
     for(int set_index = 0; set_index < sampler->num_sets; ++set_index)
     {
-        sampler->samples[set_index].x = f32rand();
-        sampler->samples[set_index].y = f32rand();
+        for(int sample_index = 0; sample_index < sampler->num_samples; ++sample_index)
+        {
+            sampler->samples[set_index * sampler->num_samples + sample_index].x = f32rand();
+            sampler->samples[set_index * sampler->num_samples + sample_index].y = f32rand();
+        }
     }
 }
 
@@ -238,7 +239,26 @@ generate_multi_jitter_samples(pixel_sampler *sampler)
 }
 
 internal pixel_sampler
-create_pixel_sampler(int num_samples, int num_sets)
+jitter_sampler(int num_samples, int num_sets)
+{
+    pixel_sampler result = {};
+    result.num_sets = num_sets;
+    result.num_samples = num_samples;
+    // TODO: Arena?
+    result.samples = (v2 *)malloc(sizeof(v2) * num_sets * num_samples);
+    result.shuffled_indices = (int *)malloc(sizeof(int) * num_sets * num_samples);
+    generate_multi_jitter_samples(&result);
+    //v2_array_shuffle_x(result.samples, result.num_samples * result.num_sets);
+    //v2_array_shuffle_y(result.samples, result.num_samples * result.num_sets);
+    generate_shuffled_indices(&result);
+    // TODO: I still don't understand entirely if I really need to have shuffled indices with multi
+    // jitter since I'm already shuffling the x and y values
+    // TODO: Check out correlated multi-jitter sampling: https://graphics.pixar.com/library/MultiJitteredSampling/paper.pdf
+    return result;
+}
+
+internal pixel_sampler
+noise_sampler(int num_samples, int num_sets)
 {
     pixel_sampler result = {};
     result.num_sets = num_sets;
@@ -247,21 +267,8 @@ create_pixel_sampler(int num_samples, int num_sets)
     result.samples = (v2 *)malloc(sizeof(v2) * num_sets * num_samples);
     result.shuffled_indices = (int *)malloc(sizeof(int) * num_sets * num_samples);
     
-    if(num_samples == 1)
-    {
-        generate_noise_samples(&result);
-        generate_shuffled_indices(&result);
-    }
-    else
-    {
-        generate_multi_jitter_samples(&result);
-        //v2_array_shuffle_x(result.samples, result.num_samples * result.num_sets);
-        //v2_array_shuffle_y(result.samples, result.num_samples * result.num_sets);
-        generate_shuffled_indices(&result);
-        // TODO: I still don't understand entirely if I really need to have shuffled indices with multi
-        // jitter since I'm already shuffling the x and y values
-        // TODO: Check out correlated multi-jitter sampling: https://graphics.pixar.com/library/MultiJitteredSampling/paper.pdf
-    }
+    generate_noise_samples(&result);
+    generate_shuffled_indices(&result);
     
     return result;
 }
