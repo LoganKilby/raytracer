@@ -84,7 +84,8 @@ scene1_noise(pixel_buffer *buffer)
     vp.pixel_size = 1;
     set_view_plane_gamma(&vp, 1);
     
-    pixel_sampler sampler = noise_sampler(16, 83);
+    //pixel_sampler sampler = noise_sampler(16, 83);
+    pixel_sampler sampler = nrooks_sampler(16, 83);
     
     plane p;
     p.origin = v3(0, 0, 0);

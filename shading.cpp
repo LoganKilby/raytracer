@@ -220,10 +220,35 @@ generate_noise_samples(pixel_sampler *sampler)
 }
 
 internal void
+generate_nrooks_samples(pixel_sampler *sampler)
+{
+    int num_sets = sampler->num_sets;
+    int num_samples = sampler->num_samples;
+    int total_samples = num_sets * num_samples;
+    
+    v2 sample;
+    for (int p = 0; p < num_sets; p++)
+    {
+        for (int j = 0; j < num_samples; j++)
+        {
+            sample.x = (j + f32rand()) / num_samples;
+            sample.y = (j + f32rand()) / num_samples;
+            sampler->samples[p * num_samples + j] = sample;
+        } 
+    }
+    
+    v2_array_shuffle_x(sampler->samples, total_samples);
+    v2_array_shuffle_y(sampler->samples, total_samples); 
+}
+
+internal void
 generate_multi_jitter_samples(pixel_sampler *sampler)
 {
     int n = (int)sqrt(sampler->num_samples);
     
+    // TODO: using the sqrt(n) * sqrt(n) grid to jitter samples
+    // map these on a n * n grid
+    // ... FINISH MULTI JITTER
     
     for(int set_index = 0; set_index < sampler->num_sets; ++set_index)
     {
@@ -268,6 +293,22 @@ noise_sampler(int num_samples, int num_sets)
     result.shuffled_indices = (int *)malloc(sizeof(int) * num_sets * num_samples);
     
     generate_noise_samples(&result);
+    generate_shuffled_indices(&result);
+    
+    return result;
+}
+
+internal pixel_sampler
+nrooks_sampler(int num_samples, int num_sets)
+{
+    pixel_sampler result = {};
+    result.num_sets = num_sets;
+    result.num_samples = num_samples;
+    // TODO: Arena?
+    result.samples = (v2 *)malloc(sizeof(v2) * num_sets * num_samples);
+    result.shuffled_indices = (int *)malloc(sizeof(int) * num_sets * num_samples);
+    
+    generate_nrooks_samples(&result);
     generate_shuffled_indices(&result);
     
     return result;
