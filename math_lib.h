@@ -22,6 +22,14 @@ typedef glm::highp_dvec3 dv3;
 #define TWO_PI 2*M_PI
 #define EPSILON 10e-6
 
+#ifdef RAYTRACER_SLOW
+#define AssertFloatEqual(x, y) (fabs(x - y) < EPSILON)
+#define AssertFloatZero(x) fabs(x) < EPSILON || x == 0
+#else
+#define AssertFloatEqual(x, y)
+#define AssertFloatZero(x)
+#endif
+
 inline f64 
 _phi(f64 x, f64 z)
 {
@@ -38,10 +46,10 @@ rand_int()
     return rand();
 }
 
-inline int
-rand_float()
+inline f32
+f32rand()
 {
-    return (float)rand() / (float)RAND_MAX;
+    return (f32)rand() / (f32)RAND_MAX;
 }
 
 inline v3

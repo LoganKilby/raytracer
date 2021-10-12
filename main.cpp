@@ -10,9 +10,11 @@
 
 int main()
 {
+    srand(8902304984);
+    
     f32 gamma = 1.0f;;
     pixel_buffer buffer;
-    scene1(&buffer);
+    scene1_noise(&buffer);
     write_ppm(buffer.data, buffer.width, buffer.height, gamma, "test.ppm");
     return 0;
 }

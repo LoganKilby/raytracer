@@ -15,7 +15,7 @@ struct pixel_buffer
 struct view_plane
 {
     f32 pixel_size;
-    
+    f32 sample_count;
     // NOTE: Default gamma in most cases in 1.0
     f32 gamma; 
     f32 inv_gamma;
@@ -32,7 +32,7 @@ internal void clear(pixel_buffer buffer, v4 c);
 internal void set_pixel(pixel_buffer buffer, int x, int y, v4 color);
 
 inline void
-set_gamma(view_plane *vp, f32 gamma)
+set_view_plane_gamma(view_plane *vp, f32 gamma)
 {
     vp->gamma = gamma;
     vp->inv_gamma = 1.0f / gamma;
