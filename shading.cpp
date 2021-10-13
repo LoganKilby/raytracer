@@ -24,6 +24,14 @@ calc_point_light(material material, point_light light, v3 view_point, v3 eyev, v
     return result;
 }
 
+inline v3
+eye_ray_direction(int row, int col, view_plane vp)
+{
+    return glm::normalize(v3(vp.pixel_size * (col - vp.width / 2 + 0.5),
+                             vp.pixel_size * (row - vp.height / 2 + 0.5),
+                             -vp.distance));
+}
+
 inline material
 default_material()
 {
@@ -147,6 +155,15 @@ sample_unit_square(pixel_sampler *sampler)
         sampler->jump = (rand_int() % sampler->num_sets) * sampler->num_samples;
     
     return sampler->samples[sampler->jump + sampler->shuffled_indices[sampler->jump + sampler->count++ % sampler->num_samples]];
+}
+
+inline v2
+sample_unit_disk(pixel_sampler *sampler)
+{
+    if(sampler->count % sampler->num_samples == 0)
+        sampler->jump = (rand_int() % sampler->num_sets) * sampler->num_samples;
+    
+    return sampler->disk_samples[sampler->jump + sampler->shuffled_indices[sampler->jump + sampler->count++ % sampler->num_samples]];
 }
 
 internal void
@@ -312,4 +329,98 @@ nrooks_sampler(int num_samples, int num_sets)
     generate_shuffled_indices(&result);
     
     return result;
+}
+
+internal void
+map_samples_to_unit_disk(pixel_sampler *sampler)
+{
+    // quarter 1: x > y; x > -y; theta [-PI/4, PI/4]; r = x, phi = (PI/4)(y/x)
+    // quarter 2: x < y; x > -y; theta [PI/4, 3PI/4]; r = y, phi = (PI/4)(4 + y/x)
+    // quarter 3: x < y; x < -y; theta [3PI/4, 5PI/4]; r = -x; phi = (PI/4)(4 + y/x)
+    // quarter 4: x > y; x < -y; theta [5PI/4, 7PI/4]; r = -y; phi = (PI/4)(6 - x/y)
+    
+    int total_samples = sampler->num_sets * sampler->num_samples;
+    f32 r, phi;
+    v2 sample_point;
+    
+    for(int j = 0; j < total_samples; ++j)
+    {
+        // map sample point to [-1, 1] [-1, 1]
+        sample_point.x = 2.0 * sampler->samples[j].x - 1.0;
+        sample_point.y = 2.0 * sampler->samples[j].y - 1.0;
+        
+        // x > y; x > -y
+        if(sample_point.x > -sample_point.y)
+        {
+            if(sample_point.x > sample_point.y)
+            {
+                // quarter 1
+                r = sample_point.x;
+                phi = sample_point.y / sample_point.x;
+            }
+            else
+            {
+                // quarter 2
+                r = sample_point.y;
+                phi = 2 - sample_point.x / sample_point.y;
+            }
+        }
+        else
+        {
+            if(sample_point.x < sample_point.y)
+            {
+                r = -sample_point.x;
+                phi = 4 + sample_point.y / sample_point.x;
+            }
+            else
+            {
+                r = -sample_point.y;
+                // catch div by 0
+                if(sample_point.y != 0)
+                {
+                    phi = 6 - sample_point.x / sample_point.y;
+                }
+                else
+                {
+                    phi = 0;
+                }
+            }
+        }
+        
+        phi *= PI / 4;
+        sampler->disk_samples[j].x = r * cos(phi);
+        sampler->disk_samples[j].y = r * sin(phi);
+    }
+}
+
+internal void
+map_samples_to_unit_hemisphere(pixel_sampler *sampler, f32 e)
+{
+    // NOTE: e defines how rapidly the surface density of the samples 
+    // on the unit hemisphere will decrease as theta increases.
+    // The author uses e=1 or e=0
+    
+    // Shirley and Morley (2003)
+    
+    // given two random numbers [r1, r2];
+    // (azimuth, phi) = [2PI * r1, acos((1 - r2) ^ (1 / e + 1))]
+    
+    // a sample point p on the hemisphere is defined as:
+    // p = sin(theta) * cos(phi) * u + sin(theta) * sin(phi) * v + cos(theta) * w
+    int total_samples = sampler->num_sets * sampler->num_samples;
+    
+    f32 cos_phi, sin_phi, cos_theta, sin_theta;
+    f32 u, v, w;
+    for(int i = 0; i < total_samples; ++i)
+    {
+        cos_phi = cos(2.0 * PI * sampler->samples[i].x);
+        sin_phi = sin(2.0 * PI * sampler->samples[i].x);
+        cos_theta = pow(1 - sampler->samples[i].y, 1 / (e + 1));
+        sin_theta = sqrt(1 - cos_theta * cos_theta);
+        u = sin_theta * cos_phi;
+        v = sin_theta * sin_phi;
+        w = cos_theta;
+        
+        sampler->hemisphere_samples[i] = v3(u, v, w);
+    }
 }

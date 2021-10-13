@@ -45,8 +45,29 @@ struct pixel_sampler
     int num_sets; // 83
     // NOTE: the amount of space for samples is num_sets * num_samples
     v2 *samples; // sample points on a unit square
+    v2 *disk_samples;
+    v3 *hemisphere_samples;
     int *shuffled_indices; // shuffled samples array indices
     unsigned long count; // the current number of sample points used
+};
+
+struct view_plane
+{
+    f32 pixel_size;
+    f32 sample_count;
+    // NOTE: Default gamma in most cases in 1.0
+    f32 distance;
+    int width;
+    int height;
+};
+
+struct camera
+{
+    v3 position;
+    v3 eye_direction; // (0, 0, -1), look_at - eye
+    v3 look_at;
+    v3 up;
+    
 };
 
 inline material default_material();
