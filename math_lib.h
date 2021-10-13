@@ -6,10 +6,11 @@
 #define _USE_MATH_DEFINES
 #include "math.h"
 
-#include "fwd.hpp"
-#include "mat4x4.hpp"
-#include "matrix_transform.hpp"
-#include "vector_double4_precision.hpp"
+#include "glm.hpp"
+//#include "fwd.hpp"
+//#include "mat4x4.hpp"
+//#include "matrix_transform.hpp"
+//#include "vector_double4_precision.hpp"
 
 typedef glm::vec4 v4;
 typedef glm::vec3 v3;
