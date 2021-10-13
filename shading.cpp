@@ -1,7 +1,5 @@
 #include "shading.h"
 
-using namespace glm;
-
 internal v4
 calc_point_light(material material, point_light light, v3 view_point, v3 eyev, v3 surface_normal)
 {
