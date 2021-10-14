@@ -78,15 +78,19 @@ scene1_noise(pixel_buffer *buffer)
 {
     view_plane vp;
     vp.pixel_size = 1;
-    vp.width = 400;
-    vp.height = 400;
-    vp.distance = 1;
+    vp.width = 200;
+    vp.height = 200;
     
     *buffer = new_pixel_buffer(vp.width, vp.height);
     clear(*buffer, {0, 0, 0, 1});
     
-    camera eye_camera;
-    eye_camera.position = v3(0, 0, 85);
+    pinhole_camera eye_camera = {};
+    eye_camera.position = v3(300, 400, 500);
+    eye_camera.look_at = v3(0, -25, -50);
+    eye_camera.up = v3(0, 1, 0);
+    eye_camera.d = 400;
+    zoom_pinhole_camera(&eye_camera, 0.5);
+    camera_compute_basis(&eye_camera);
     
     //pixel_sampler sampler = noise_sampler(16, 83);
     pixel_sampler sampler = nrooks_sampler(16, 83);
@@ -122,6 +126,8 @@ scene1_noise(pixel_buffer *buffer)
     f32 x, y, z = 100;
     f32 view_x, view_y;
     v2 sampled_noise;
+    v2 pixel_coords;
+    
     int n = (int)sqrt((float)sampler.num_samples);
     
     int width = buffer->width, height = buffer->height;
@@ -136,10 +142,10 @@ scene1_noise(pixel_buffer *buffer)
                 {
                     sampled_noise = sample_unit_square(&sampler);
                     
-                    x = vp.pixel_size * (col - 0.5 * width + (across + sampled_noise.x) / n);
-                    y = vp.pixel_size * (row - 0.5 * height + (up + sampled_noise.y) / n);
+                    pixel_coords.x = vp.pixel_size * eye_camera.zoom * (col - 0.5 * width +  sampled_noise.x);
+                    pixel_coords.y = vp.pixel_size * eye_camera.zoom * (row - 0.5 * height + sampled_noise.y);
+                    r.direction = pinhole_camera_ray_direction(pixel_coords, &eye_camera);
                     
-                    r.direction = eye_ray_direction(row, col, vp);
                     ray_sphere_intersections(r, &world_geo[0], array_count(world_geo), &hit_group);
                     ray_plane_intersections(r, &p, 1, &hit_group);
                     
@@ -167,9 +173,9 @@ scene1_jitter_antialiasing(pixel_buffer *buffer)
     view_plane vp;
     vp.pixel_size = 1;
     vp.sample_count = 16;
-    vp.distance = 1;
     vp.width = 400;
     vp.height = 400;
+    f32 vp_distance = 1;
     
     *buffer = new_pixel_buffer(vp.width, vp.height);
     clear(*buffer, {0, 0, 0, 1});
@@ -219,7 +225,7 @@ scene1_jitter_antialiasing(pixel_buffer *buffer)
                     x = vp.pixel_size * (col - 0.5 * width + (across + f32rand()) / n);
                     y = vp.pixel_size * (row - 0.5 * height + (up + f32rand()) / n);
                     r.origin = v3(x, y, z);
-                    r.direction = eye_ray_direction(row, col, vp);
+                    r.direction = eye_ray_direction(row, col, vp, vp_distance);
                     ray_sphere_intersections(r, &world_geo[0], array_count(world_geo), &hit_group);
                     ray_plane_intersections(r, &p, 1, &hit_group);
                     if(hit_group.count)

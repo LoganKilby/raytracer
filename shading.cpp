@@ -22,14 +22,6 @@ calc_point_light(material material, point_light light, v3 view_point, v3 eyev, v
     return result;
 }
 
-inline v3
-eye_ray_direction(int row, int col, view_plane vp)
-{
-    return glm::normalize(v3(vp.pixel_size * (col - vp.width / 2 + 0.5),
-                             vp.pixel_size * (row - vp.height / 2 + 0.5),
-                             -vp.distance));
-}
-
 inline material
 default_material()
 {

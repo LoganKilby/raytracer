@@ -56,18 +56,8 @@ struct view_plane
     f32 pixel_size;
     f32 sample_count;
     // NOTE: Default gamma in most cases in 1.0
-    f32 distance;
     int width;
     int height;
-};
-
-struct camera
-{
-    v3 position;
-    v3 eye_direction; // (0, 0, -1), look_at - eye
-    v3 look_at;
-    v3 up;
-    
 };
 
 inline material default_material();

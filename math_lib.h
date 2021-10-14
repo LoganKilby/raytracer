@@ -23,13 +23,8 @@ typedef glm::highp_dvec3 dv3;
 #define TWO_PI 2*M_PI
 #define EPSILON 10e-6
 
-#ifdef RAYTRACER_SLOW
-#define AssertFloatEqual(x, y) (fabs(x - y) < EPSILON)
-#define AssertFloatZero(x) fabs(x) < EPSILON || x == 0
-#else
-#define AssertFloatEqual(x, y)
-#define AssertFloatZero(x)
-#endif
+#define float_equal(x, y) (fabs(x - y) < EPSILON)
+#define float_zero(x) (fabs(x) < EPSILON)
 
 inline f64 
 _phi(f64 x, f64 z)

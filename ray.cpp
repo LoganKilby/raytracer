@@ -148,3 +148,11 @@ nearest_hit(ray_hit_group *group)
     
     return result;
 }
+
+inline v3
+eye_ray_direction(int row, int col, view_plane vp, f32 vp_distance)
+{
+    return glm::normalize(v3(vp.pixel_size * (col - vp.width / 2 + 0.5),
+                             vp.pixel_size * (row - vp.height / 2 + 0.5),
+                             -vp_distance));
+}

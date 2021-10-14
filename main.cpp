@@ -4,13 +4,22 @@
 #include "math_lib.h"
 #include "main.h"
 
+#include "camera.cpp"
 #include "ray.cpp"
 #include "shading.cpp"
 #include "scene_functions.cpp"
 
+// Forman Action (books):
+// Numerical Methods That Work; Real Computing Made Real
+
+// Paper on floating point arithmetic:
+// https://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html
+
 int main()
 {
     srand(8902304984);
+    
+    pinhole_camera c = {};
     
     f32 gamma = 1.0f;;
     pixel_buffer buffer;
