@@ -305,22 +305,6 @@ noise_sampler(int num_samples, int num_sets)
     return result;
 }
 
-internal pixel_sampler
-nrooks_sampler(int num_samples, int num_sets)
-{
-    pixel_sampler result = {};
-    result.num_sets = num_sets;
-    result.num_samples = num_samples;
-    // TODO: Arena?
-    result.samples = (v2 *)malloc(sizeof(v2) * num_sets * num_samples);
-    result.shuffled_indices = (int *)malloc(sizeof(int) * num_sets * num_samples);
-    
-    generate_nrooks_samples(&result);
-    generate_shuffled_indices(&result);
-    
-    return result;
-}
-
 internal void
 map_samples_to_unit_disk(pixel_sampler *sampler)
 {
@@ -381,6 +365,24 @@ map_samples_to_unit_disk(pixel_sampler *sampler)
         sampler->disk_samples[j].x = r * cos(phi);
         sampler->disk_samples[j].y = r * sin(phi);
     }
+}
+
+internal pixel_sampler
+nrooks_sampler(int num_samples, int num_sets)
+{
+    pixel_sampler result = {};
+    result.num_sets = num_sets;
+    result.num_samples = num_samples;
+    // TODO: Arena?
+    result.samples = (v2 *)malloc(sizeof(v2) * num_sets * num_samples);
+    result.shuffled_indices = (int *)malloc(sizeof(int) * num_sets * num_samples);
+    result.disk_samples = (v2 *)malloc(sizeof(v2) * num_sets * num_samples);
+    
+    generate_nrooks_samples(&result);
+    generate_shuffled_indices(&result);
+    map_samples_to_unit_disk(&result);
+    
+    return result;
 }
 
 internal void

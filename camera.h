@@ -13,21 +13,14 @@ struct camera
 
 struct pinhole_camera : camera
 {
-    f32 d;
+    f32 vp_distance;
     f32 zoom;
 };
 
-inline v3
-pinhole_camera_ray_direction(v2 point, pinhole_camera *camera)
+struct thin_lens_camera : pinhole_camera
 {
-    return glm::normalize(point.x * camera->u + 
-                          point.y * camera->v - 
-                          camera->d * camera->w);
-}
+    f32 lens_radius;
+    f32 focal_length;
+};
 
-inline void
-zoom_pinhole_camera(pinhole_camera *camera, f32 zoom)
-{
-    camera->zoom = 1 / zoom;
-}
 #endif //CAMERA_H

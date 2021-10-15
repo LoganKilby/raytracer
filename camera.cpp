@@ -18,3 +18,31 @@ camera_compute_basis(camera *camera)
     camera->u = glm::normalize(camera->u);
     camera->v = glm::cross(camera->w, camera->u);
 }
+
+internal v3
+thin_lens_ray_direction(thin_lens_camera *camera, v2 lens_position, v2 pixel)
+{
+    v2 p;
+    p.x = pixel.x * camera->focal_length / camera->vp_distance;
+    p.y = pixel.y * camera->focal_length / camera->vp_distance;
+    
+    v3 result = v3((p.x - lens_position.x) * camera->u +
+                   (p.y - lens_position.y) * camera->v -
+                   (camera->focal_length * camera->w));
+    
+    return glm::normalize(result);
+}
+
+inline v3
+pinhole_ray_direction(pinhole_camera *camera, v2 point)
+{
+    return glm::normalize(point.x * camera->u + 
+                          point.y * camera->v - 
+                          camera->vp_distance * camera->w);
+}
+
+inline void
+zoom_pinhole_camera(pinhole_camera *camera, f32 zoom)
+{
+    camera->zoom = 1 / zoom;
+}

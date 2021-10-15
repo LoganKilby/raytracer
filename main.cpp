@@ -1,6 +1,5 @@
 #include "types.h"
 #include "macros.h"
-#include "qpc.h"
 #include "math_lib.h"
 #include "main.h"
 
@@ -19,11 +18,9 @@ int main()
 {
     srand(8902304984);
     
-    pinhole_camera c = {};
-    
     f32 gamma = 1.0f;;
     pixel_buffer buffer;
-    scene1_noise(&buffer);
+    scene1_thin_lens(&buffer);
     write_ppm(buffer.data, buffer.width, buffer.height, gamma, "test.ppm");
     return 0;
 }

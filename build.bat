@@ -7,7 +7,7 @@ set opts=-FC -GR- -EHa- -nologo -Zi -DRAYTRACER_SLOW /IC:\Library\glm\glm /IC:\L
 REM /IC:\Library\glm\glm\gtx
 set code=%cd%
 pushd build
-cl %opts% %code%\main.cpp -Feraytracer
+cl %opts% %code%\main.cpp -Feraytracer kernel32.lib
 cl %opts% %code%\test.cpp -Fetests
 popd
 

@@ -5,7 +5,6 @@
 
 #define _USE_MATH_DEFINES
 #include "math.h"
-
 #include "glm.hpp"
 //#include "fwd.hpp"
 //#include "mat4x4.hpp"

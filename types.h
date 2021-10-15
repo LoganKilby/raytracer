@@ -9,6 +9,8 @@
 
 typedef float f32;
 typedef double f64;
+typedef __int32 s32;
+typedef __int64 s64;
 typedef unsigned int u32;
 typedef unsigned long u64;
 typedef unsigned char u8;
