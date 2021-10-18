@@ -1,8 +1,115 @@
+internal void
+scene2_hmh(pixel_buffer *buffer)
+{
+    f32 percent_progress = 0;
+    TIMED_BLOCK;
+    
+    *buffer = allocate_pixel_buffer(1280, 720);
+    
+    material materials[6] = {};
+    materials[0].emit_color = v4(0.3f, 0.4f, 0.5f, 1);
+    materials[1].reflect_color = v4(0.5f, 0.5f, 0.5f, 1);
+    materials[2].reflect_color = v4(0.7f, 0.5f, 0.3f, 1);
+    materials[3].emit_color = v4(4.0f, 0.0f, 0.0f, 1);
+    materials[4].reflect_color = v4(0.2f, 0.8f, 0.2f, 1);
+    materials[4].scatter = 1.0f;
+    materials[5].reflect_color = v4(0.4f, 0.8f, 0.9f, 1);
+    materials[5].scatter = 1.0f;
+    
+    plane planes[1] = {};
+    planes[0].d = 0;
+    planes[0].normal = v3(0, 0, 1);
+    planes[0].material_index = 1;
+    
+    sphere spheres[4] = {};
+    spheres[0].origin = v3(0, 0, 0);
+    spheres[0].radius = 1;
+    spheres[0].material_index = 2;
+    spheres[1].origin = v3(3, -2, 0);
+    spheres[1].radius = 1;
+    spheres[1].material_index = 3;
+    spheres[2].origin = v3(-2, -1, 2);
+    spheres[2].radius = 1.0;
+    spheres[2].material_index = 4;
+    spheres[3].origin = v3(1, -1, 3);
+    spheres[3].radius = 1.0;
+    spheres[3].material_index = 5;
+    
+    world world = {};
+    world.material_count = array_count(materials);
+    world.materials = materials;
+    world.plane_count = array_count(planes);
+    world.planes = planes;
+    world.sphere_count = array_count(spheres);
+    world.spheres = spheres;
+    
+    camera camera = {};
+    camera.position = v3(0, -10, 1);
+    camera.z_axis = normalize(camera.position);
+    camera.x_axis = normalize(cross(v3(0, 0, 1), camera.z_axis));
+    camera.y_axis = normalize(cross(camera.z_axis, camera.x_axis));
+    
+    f32 film_distance = 1.0;
+    f32 film_width = 1.0;
+    f32 film_height = 1.0;
+    
+    if(buffer->width > buffer->height)
+    {
+        film_height = film_width * (f32)buffer->height / (f32)buffer->width;
+    }
+    else if(buffer->height > buffer->width)
+    {
+        film_width = film_height * (f32)buffer->width / (f32)buffer->height;
+    }
+    
+    f32 half_film_width = 0.5f * film_width;
+    f32 half_film_height = 0.5f * film_height;
+    v3 film_center = camera.position - film_distance * camera.z_axis;
+    
+    f32 pixel_width = 0.5f / buffer->width;
+    f32 pixel_height = 0.5f / buffer->height;
+    
+    ray r;
+    
+    for(int row = 0; row < buffer->height; ++row)
+    {
+        f32 film_y = -1.0 + 2.0 * ((f32)row / (f32)buffer->height);
+        for(int col = 0; col < buffer->width; ++col)
+        {
+            f32 film_x = -1.0 + 2.0 * ((f32)col / (f32)buffer->width);
+            
+            v3 color = {};
+            u32 rays_per_pixel = 8;
+            f32 color_contribution = 1.0f / (f32)rays_per_pixel;
+            for(u32 ray_index = 0; ray_index < rays_per_pixel; ++ray_index)
+            {
+                f32 offset_x = film_x + random_bilateral() * pixel_width;
+                f32 offset_y = film_y + random_bilateral() * pixel_height;
+                
+                v3 film_position = film_center + (offset_x * camera.x_axis * half_film_width) + (offset_y * camera.y_axis * half_film_height);
+                
+                r.origin = camera.position;
+                r.direction = normalize(film_position - camera.position);
+                
+                color += color_contribution * ray_cast(&world, r.origin, r.direction);
+            }
+            
+            set_pixel(buffer, col, row, v4(color, 1.0));
+        }
+        
+        percent_progress = ((f32)row / (f32)buffer->height) * 100;
+        printf("\rrendering... %.0f%%", percent_progress);
+        fflush(stdout);
+    }
+    
+    printf("\n");
+}
+
 // jitter sampling
 internal void
 scene1_jitter(pixel_buffer *buffer)
 {
-    *buffer = new_pixel_buffer(400, 400);
+    *buffer = allocate_pixel_buffer(400, 400);
     clear(*buffer, {0, 0, 0, 1});
     
     view_plane vp;
@@ -67,7 +174,7 @@ scene1_jitter(pixel_buffer *buffer)
             
             // Not using alpha here
             color /= sampler.num_samples;
-            set_pixel(*buffer, col, row, color);
+            set_pixel(buffer, col, row, color);
         }
     }
 }
@@ -83,7 +190,7 @@ scene1_thin_lens(pixel_buffer *buffer)
     vp.width = 200;
     vp.height = 200;
     
-    *buffer = new_pixel_buffer(vp.width, vp.height);
+    *buffer = allocate_pixel_buffer(vp.width, vp.height);
     clear(*buffer, {0, 0, 0, 1});
     
     thin_lens_camera camera = {};
@@ -169,7 +276,7 @@ scene1_thin_lens(pixel_buffer *buffer)
             
             // Not using alpha here
             color /= sampler.num_samples;
-            set_pixel(*buffer, col, row, color);
+            set_pixel(buffer, col, row, color);
         }
     }
 }
@@ -185,7 +292,7 @@ scene1_noise(pixel_buffer *buffer)
     vp.width = 200;
     vp.height = 200;
     
-    *buffer = new_pixel_buffer(vp.width, vp.height);
+    *buffer = allocate_pixel_buffer(vp.width, vp.height);
     clear(*buffer, {0, 0, 0, 1});
     
     pinhole_camera eye_camera = {};
@@ -265,7 +372,7 @@ scene1_noise(pixel_buffer *buffer)
             
             // Not using alpha here
             color /= sampler.num_samples;
-            set_pixel(*buffer, col, row, color);
+            set_pixel(buffer, col, row, color);
         }
     }
 }
@@ -281,7 +388,7 @@ scene1_jitter_antialiasing(pixel_buffer *buffer)
     vp.height = 400;
     f32 vp_distance = 1;
     
-    *buffer = new_pixel_buffer(vp.width, vp.height);
+    *buffer = allocate_pixel_buffer(vp.width, vp.height);
     clear(*buffer, {0, 0, 0, 1});
     
     plane p;
@@ -345,7 +452,7 @@ scene1_jitter_antialiasing(pixel_buffer *buffer)
             
             color /= vp.sample_count;
             // Not using alpha here
-            set_pixel(*buffer, col, row, color);
+            set_pixel(buffer, col, row, color);
         }
     }
 }
@@ -354,7 +461,7 @@ scene1_jitter_antialiasing(pixel_buffer *buffer)
 internal void
 scene1_regular_aliasing(pixel_buffer *buffer)
 {
-    *buffer = new_pixel_buffer(400,  400);
+    *buffer = allocate_pixel_buffer(400,  400);
     clear(*buffer, {0, 0, 0, 1});
     
     view_plane vp;
@@ -421,7 +528,7 @@ scene1_regular_aliasing(pixel_buffer *buffer)
             
             // Not using alpha here
             color /= vp.sample_count;
-            set_pixel(*buffer, col, row, color);
+            set_pixel(buffer, col, row, color);
         }
     }
 }
@@ -429,7 +536,7 @@ scene1_regular_aliasing(pixel_buffer *buffer)
 internal void
 scene1(pixel_buffer *buffer)
 {
-    *buffer = new_pixel_buffer(400, 400);
+    *buffer = allocate_pixel_buffer(400, 400);
     clear(*buffer, {0, 0, 0, 1});
     
     view_plane vp;
@@ -477,7 +584,7 @@ scene1(pixel_buffer *buffer)
             if(hit_group.count)
             {
                 near_hit = nearest_hit(&hit_group);
-                set_pixel(*buffer, col, row, near_hit.rgb);
+                set_pixel(buffer, col, row, near_hit.rgb);
             }
             
             hit_group.count = 0;
@@ -488,7 +595,7 @@ scene1(pixel_buffer *buffer)
 internal void
 scene0(pixel_buffer *buffer)
 {
-    *buffer = new_pixel_buffer(200, 200);
+    *buffer = allocate_pixel_buffer(200, 200);
     clear(*buffer, {0.0f, 0.0f, 0.0f, 1.0f});
     
     view_plane vp;
@@ -518,7 +625,7 @@ scene0(pixel_buffer *buffer)
             
             if(ray_sphere_intersection(r, s, &hit))
             {
-                set_pixel(*buffer, col, row, pixel_color);
+                set_pixel(buffer, col, row, pixel_color);
             }
             
         }

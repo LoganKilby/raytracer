@@ -8,10 +8,6 @@ REM /IC:\Library\glm\glm\gtx
 set code=%cd%
 pushd build
 cl %opts% %code%\main.cpp -Feraytracer kernel32.lib
-cl %opts% %code%\test.cpp -Fetests
 popd
 
 ctime -end timing.ctm %last_error%
-
-pushd build
-tests

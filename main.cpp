@@ -14,24 +14,46 @@
 // Paper on floating point arithmetic:
 // https://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html
 
+internal f32
+linear_to_srgb(f32 linear)
+{
+    if(linear < 0.0f)
+    {
+        linear = 0.0f;
+    }
+    
+    if(linear > 1.0f)
+    {
+        linear = 1.0f;
+    }
+    
+    f32 srgb = linear * 12.95f;;
+    if(linear > 0.0031308f)
+    {
+        srgb = 1.055f * pow(linear, 1.0f/2.4f) - 0.055f;
+    }
+    
+    return srgb;
+}
+
 int main()
 {
     srand(8902304984);
     
-    f32 gamma = 1.0f;;
+    f32 gamma = 2.2f;;
     pixel_buffer buffer;
-    scene1_thin_lens(&buffer);
+    scene2_hmh(&buffer);
     write_ppm(buffer.data, buffer.width, buffer.height, gamma, "test.ppm");
     return 0;
 }
 
 inline void
-set_pixel(pixel_buffer buffer, int col, int row, v4 color)
+set_pixel(pixel_buffer *buffer, int col, int row, v4 color)
 {
-    if((col >= buffer.width || col < 0) || ((row >= buffer.height || row < 0)))
+    if((col >= buffer->width || col < 0) || ((row >= buffer->height || row < 0)))
         return;
     
-    v4 *pixel = (v4 *)&buffer.data[buffer.width * buffer.height * 4] - (row * buffer.width) - (buffer.width - col);
+    v4 *pixel = (v4 *)&buffer->data[buffer->width * buffer->height * 4] - (row * buffer->width) - (buffer->width - col);
     *pixel = color;
 }
 
@@ -48,7 +70,7 @@ clear(pixel_buffer buffer, v4 c)
 }
 
 internal pixel_buffer
-new_pixel_buffer(u32 width, u32 height)
+allocate_pixel_buffer(u32 width, u32 height)
 {
     pixel_buffer result;
     result.pitch = width * 4;
@@ -91,11 +113,11 @@ write_ppm(f32 *pixel_data, int width, int height, f32 gamma, char *filename)
             for(f32 *col = row; col < row + pitch; col += 4)
             {
                 pixel = (v3 *)col;
-                v3_f32_pow(pixel, inv_gamma);
+                //v3_f32_pow(pixel, inv_gamma);
                 
-                r = (u8)(clampf(pixel->r, 0, 1) * 255);
-                g = (u8)(clampf(pixel->g, 0, 1) * 255);
-                b = (u8)(clampf(pixel->b, 0, 1) * 255);
+                r = (u8)(linear_to_srgb(pixel->r) * 255);
+                g = (u8)(linear_to_srgb(pixel->g) * 255);
+                b = (u8)(linear_to_srgb(pixel->b) * 255);
                 
                 fprintf(file_handle, "%u %u %u ", r, g, b);
             }

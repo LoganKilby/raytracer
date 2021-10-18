@@ -14,6 +14,6 @@ typedef __int64 s64;
 typedef unsigned int u32;
 typedef unsigned long u64;
 typedef unsigned char u8;
-typedef int bool32;
+typedef int b32;
 
 #endif //TYPES_H

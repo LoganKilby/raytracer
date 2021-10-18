@@ -11,6 +11,11 @@ struct point_light
 
 struct material
 {
+    v3 emit_color;
+    v3 reflect_color;
+    f32 scatter; // 0 is pure diffuse, 1 is pure specular
+    
+    
     v4 color;
     f32 ambient;
     f32 diffuse;

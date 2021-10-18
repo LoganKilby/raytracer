@@ -7,6 +7,9 @@ struct camera
 {
     v3 position;
     v3 look_at;
+    v3 z_axis;
+    v3 x_axis;
+    v3 y_axis;
     v3 up;
     v3 u, v, w;
 };

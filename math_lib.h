@@ -6,10 +6,6 @@
 #define _USE_MATH_DEFINES
 #include "math.h"
 #include "glm.hpp"
-//#include "fwd.hpp"
-//#include "mat4x4.hpp"
-//#include "matrix_transform.hpp"
-//#include "vector_double4_precision.hpp"
 
 typedef glm::vec4 v4;
 typedef glm::vec3 v3;
@@ -44,7 +40,22 @@ rand_int()
 inline f32
 f32rand()
 {
-    return (f32)rand() / (f32)RAND_MAX;
+    f32 result = (f32)rand() / (f32)RAND_MAX;
+    return result;
+}
+
+inline f32
+random_unilateral()
+{
+    f32 result = (f32)rand() / (f32)RAND_MAX;
+    return result;
+}
+
+inline f32
+random_bilateral()
+{
+    f32 result = -1.0f + 2.0f * random_unilateral();
+    return result;
 }
 
 inline v3
@@ -72,6 +83,14 @@ clampf(f32 x, f32 min, f32 max)
     {
         return x < min ? min : max;
     }
+}
+
+inline v3
+lerp(v3 a, f32 t, v3 b)
+{
+    v3 result = (1.0f - t)*a + t*b;
+    
+    return result;
 }
 
 #endif //MATH_LIB_H

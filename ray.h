@@ -23,13 +23,28 @@ struct sphere
     int id;
     glm::mat4 transform;
     material material;
+    int material_index;
 };
 
 struct plane
 {
     v3 origin;
     v3 normal;
+    f32 d;
     material material;
+    int material_index;
+};
+
+struct world
+{
+    u32 material_count;
+    material *materials;
+    
+    u32 plane_count;
+    plane *planes;
+    
+    u32 sphere_count;
+    sphere *spheres;
 };
 
 struct geo
