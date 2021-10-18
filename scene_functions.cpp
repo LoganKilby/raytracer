@@ -6,22 +6,24 @@ scene2_hmh(pixel_buffer *buffer)
     
     *buffer = allocate_pixel_buffer(1280, 720);
     
-    material materials[6] = {};
+    material materials[7] = {};
     materials[0].emit_color = v4(0.3f, 0.4f, 0.5f, 1);
     materials[1].reflect_color = v4(0.5f, 0.5f, 0.5f, 1);
     materials[2].reflect_color = v4(0.7f, 0.5f, 0.3f, 1);
-    materials[3].emit_color = v4(4.0f, 0.0f, 0.0f, 1);
+    materials[3].emit_color = v4(5.0f, 0.0f, 0.0f, 1);
     materials[4].reflect_color = v4(0.2f, 0.8f, 0.2f, 1);
-    materials[4].scatter = 1.0f;
+    materials[4].scatter = 0.75f;
     materials[5].reflect_color = v4(0.4f, 0.8f, 0.9f, 1);
-    materials[5].scatter = 1.0f;
+    materials[5].scatter = 0.85f;
+    materials[6].reflect_color = v4(0.95f, 0.95f, 0.95f, 1);
+    materials[6].scatter = 1.0f;
     
     plane planes[1] = {};
     planes[0].d = 0;
     planes[0].normal = v3(0, 0, 1);
     planes[0].material_index = 1;
     
-    sphere spheres[4] = {};
+    sphere spheres[5] = {};
     spheres[0].origin = v3(0, 0, 0);
     spheres[0].radius = 1;
     spheres[0].material_index = 2;
@@ -34,6 +36,9 @@ scene2_hmh(pixel_buffer *buffer)
     spheres[3].origin = v3(1, -1, 3);
     spheres[3].radius = 1.0;
     spheres[3].material_index = 5;
+    spheres[4].origin = v3(2.5, 3, 0);
+    spheres[4].radius = 2.0;
+    spheres[4].material_index = 6;
     
     world world = {};
     world.material_count = array_count(materials);
