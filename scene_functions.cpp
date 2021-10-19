@@ -1,10 +1,7 @@
 internal void
-scene2_hmh(pixel_buffer *buffer)
+scene2_hmh(pixel_buffer buffer, u32 *total_bounces)
 {
     f32 percent_progress = 0;
-    TIMED_BLOCK;
-    
-    *buffer = allocate_pixel_buffer(1280, 720);
     
     material materials[7] = {};
     materials[0].emit_color = V3(0.3f, 0.4f, 0.5f);
@@ -48,64 +45,41 @@ scene2_hmh(pixel_buffer *buffer)
     world.sphere_count = array_count(spheres);
     world.spheres = spheres;
     
-    camera camera = {};
-    camera.position = V3(0, -10, 1);
-    camera.z_axis = normalize(camera.position);
-    camera.x_axis = normalize(outer(V3(0, 0, 1), camera.z_axis));
-    camera.y_axis = normalize(outer(camera.z_axis, camera.x_axis));
+    u32 core_count = 4; // TODO: Get user core count
+    u32 tile_width = buffer.width / core_count;
+    u32 tile_height = tile_width;
+    printf("core_count %d with %dx%d (%dk/tile) tiles\n",core_count, tile_width, tile_height, tile_width * tile_height * 4 * 4 / 1024);
     
-    f32 film_distance = 1.0;
-    f32 film_width = 1.0;
-    f32 film_height = 1.0;
+    u32 tile_count_x = (buffer.width + tile_width - 1) / tile_width;
+    u32 tile_count_y = (buffer.height + tile_height - 1) / tile_height;
+    u32 total_tile_count = tile_count_x * tile_count_y;
+    u32 tiles_retired = 0;
     
-    if(buffer->width > buffer->height)
+    for(u32 tile_y = 0; tile_y < tile_count_y; ++tile_y)
     {
-        film_height = film_width * (f32)buffer->height / (f32)buffer->width;
-    }
-    else if(buffer->height > buffer->width)
-    {
-        film_width = film_height * (f32)buffer->width / (f32)buffer->height;
-    }
-    
-    f32 half_film_width = 0.5f * film_width;
-    f32 half_film_height = 0.5f * film_height;
-    v3 film_center = camera.position - film_distance * camera.z_axis;
-    
-    f32 pixel_width = 0.5f / buffer->width;
-    f32 pixel_height = 0.5f / buffer->height;
-    
-    ray r;
-    
-    for(int row = 0; row < buffer->height; ++row)
-    {
-        f32 film_y = -1.0 + 2.0 * ((f32)row / (f32)buffer->height);
-        for(int col = 0; col < buffer->width; ++col)
+        u32 min_y = tile_y * tile_height;
+        u32 max_y = min_y + tile_height;
+        if(max_y > buffer.height)
         {
-            f32 film_x = -1.0 + 2.0 * ((f32)col / (f32)buffer->width);
-            
-            v3 color = {};
-            u32 rays_per_pixel = 8;
-            f32 color_contribution = 1.0f / (f32)rays_per_pixel;
-            for(u32 ray_index = 0; ray_index < rays_per_pixel; ++ray_index)
-            {
-                f32 offset_x = film_x + random_bilateral() * pixel_width;
-                f32 offset_y = film_y + random_bilateral() * pixel_height;
-                
-                v3 film_position = film_center + (camera.x_axis * offset_x * half_film_width) + (camera.y_axis * offset_y * half_film_height);
-                
-                r.origin = camera.position;
-                r.direction = normalize(film_position - camera.position);
-                
-                color += color_contribution * ray_cast(&world, r.origin, r.direction);
-            }
-            
-            set_pixel(buffer, col, row, V4(color, 1.0));
+            max_y = buffer.height;
         }
         
-        percent_progress = ((f32)row / (f32)buffer->height) * 100;
-        printf("\rrendering... %.0f%%", percent_progress);
-        fflush(stdout);
+        for(u32 tile_x = 0; tile_x < tile_count_x; ++tile_x)
+        {
+            u32 min_x = tile_x * tile_width;
+            u32 max_x = min_x + tile_width;
+            if(max_x > buffer.width)
+            {
+                max_x = buffer.width;
+            }
+            
+            render_tile(&world, &buffer, min_x, min_y, max_x, max_y);
+            ++tiles_retired;
+            printf("\rrendering... %.0f%%", ((f32)tiles_retired / (f32)total_tile_count) * 100);
+            fflush(stdout);
+        }
     }
     
     printf("\n");
+    *total_bounces = world.total_bounces;
 }

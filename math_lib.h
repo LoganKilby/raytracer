@@ -8,16 +8,6 @@
 #include <stdlib.h>
 #include <float.h>
 
-#if 0
-#include "glm.hpp"
-typedef glm::vec4 v4;
-typedef glm::vec3 v3;
-typedef glm::vec2 v2;
-typedef glm::highp_dvec4 dv4;
-typedef glm::highp_dvec3 dv3;
-#define mat4_identity() glm::mat4(1.0f)
-#endif
-
 #define PI (float)M_PI
 #define TWO_PI 2*M_PI
 #define EPSILON 10e-6

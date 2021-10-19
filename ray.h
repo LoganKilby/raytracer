@@ -44,6 +44,8 @@ struct world
     
     u32 sphere_count;
     sphere *spheres;
+    
+    u32 total_bounces;
 };
 
 struct geo

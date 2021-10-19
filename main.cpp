@@ -2,6 +2,7 @@
 #include "macros.h"
 #include "math_lib.h"
 #include "main.h"
+#include "time.h"
 
 #include "camera.cpp"
 #include "ray.cpp"
@@ -39,10 +40,26 @@ linear_to_srgb(f32 linear)
 int main()
 {
     srand(8902304984);
+    LARGE_INTEGER timer_start;
+    LARGE_INTEGER frequency;
+    QueryPerformanceFrequency(&frequency);
+    QueryPerformanceCounter(&timer_start);
+    
+    u32 total_bounces;
+    pixel_buffer buffer = allocate_pixel_buffer(1280, 720);
+    scene2_hmh(buffer, &total_bounces);
+    
+    LARGE_INTEGER timer_end;
+    QueryPerformanceCounter(&timer_end);
+    timer_end.QuadPart = timer_end.QuadPart - timer_start.QuadPart;
+    timer_end.QuadPart *= 1000000;
+    timer_end.QuadPart /= frequency.QuadPart;
+    f64 ms_elapsed = timer_end.QuadPart / 1000.0l;
+    f64 ms_per_bounce = ms_elapsed / total_bounces;
+    printf("Runtime: %.3Lf ms\n", ms_elapsed);
+    printf("Per-Ray Performance: %Lf ms\n", ms_per_bounce);
     
     f32 gamma = 2.2f;;
-    pixel_buffer buffer;
-    scene2_hmh(&buffer);
     write_ppm(buffer.data, buffer.width, buffer.height, gamma, "test.ppm");
     return 0;
 }

@@ -36,14 +36,14 @@ struct block_timer
     }
 };
 
+#define TIMED_BLOCK block_timer timer##__LINE__(__FUNCTION__);
+
 #ifdef RAYTRACER_SLOW
 #define AssertBreak *(int *)0 = 0;
 #define Assert(expression) { if(!(expression)) { AssertBreak; } }
-#define TIMED_BLOCK block_timer timer##__LINE__(__FUNCTION__);
 #else
 #define AssertBreak
 #define Assert(expression);
-#define TIMED_BLOCK
 #endif //RAYTRACER_SLOW
 
 

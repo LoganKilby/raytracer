@@ -1,43 +1,6 @@
 #include "ray.h"
 #include "shading.h"
 
-internal bool
-ray_sphere_intersection(ray r, sphere s, ray_hit *out)
-{
-    f32 t;
-    v3 temp = r.origin - s.origin;
-    f32 a = inner(r.direction, r.direction);
-    f32 b = 2.0f * inner(temp, r.direction);
-    f32 c = inner(temp, temp) - s.radius * s.radius;
-    f32 disc = b * b - 4.0f * a * c;
-    
-    if(disc > 0.0f)
-    {
-        f32 e = sqrt(disc);
-        f32 denom = 2.0f * a;
-        
-        t = (-b - e) / denom;
-        if(t > EPSILON)
-        {
-            out->tmin = t;
-            out->normal = (temp + (t * r.direction)) / s.radius;
-            out->local_hit_point = r.origin + t * r.direction;
-            return true;
-        }
-        
-        t = (-b + e) / denom;
-        if(t > EPSILON)
-        {
-            out->tmin = t;
-            out->normal = (temp + t * r.direction) / s.radius;
-            out->local_hit_point = r.origin + t * r.direction;
-            return true;
-        }
-    }
-    
-    return false;
-}
-
 internal v3
 ray_cast(world *world, v3 ray_origin, v3 ray_direction)
 {
@@ -45,8 +8,9 @@ ray_cast(world *world, v3 ray_origin, v3 ray_direction)
     f32 hit_distance = FLT_MAX;
     v3 attenuation = V3(1, 1, 1);
     
-    for(u32 ray_count = 0; ray_count < 8; ++ray_count)
+    for(u32 bounce_count = 0; bounce_count < 8; ++bounce_count)
     {
+        ++world->total_bounces;
         v3 hit_origin;
         v3 hit_normal;
         u32 hit_mat_index = 0;
@@ -121,4 +85,62 @@ ray_cast(world *world, v3 ray_origin, v3 ray_direction)
     }
     
     return result;
+}
+
+internal void
+render_tile(world *world, pixel_buffer *buffer, u32 x_min, u32 y_min, u32 x_count, u32 y_count)
+{
+    camera camera = {};
+    camera.position = V3(0, -10, 1);
+    camera.z_axis = normalize(camera.position);
+    camera.x_axis = normalize(outer(V3(0, 0, 1), camera.z_axis));
+    camera.y_axis = normalize(outer(camera.z_axis, camera.x_axis));
+    
+    f32 film_distance = 1.0;
+    f32 film_width = 1.0;
+    f32 film_height = 1.0;
+    
+    if(buffer->width > buffer->height)
+    {
+        film_height = film_width * (f32)buffer->height / (f32)buffer->width;
+    }
+    else if(buffer->height > buffer->width)
+    {
+        film_width = film_height * (f32)buffer->width / (f32)buffer->height;
+    }
+    
+    f32 half_film_width = 0.5f * film_width;
+    f32 half_film_height = 0.5f * film_height;
+    v3 film_center = camera.position - film_distance * camera.z_axis;
+    
+    f32 pixel_width = 0.5f / buffer->width;
+    f32 pixel_height = 0.5f / buffer->height;
+    
+    ray r;
+    u32 rays_per_pixel = 1;
+    for(int row = y_min; row < y_count; ++row)
+    {
+        f32 film_y = -1.0 + 2.0 * ((f32)row / (f32)buffer->height);
+        for(int col = x_min; col < x_count; ++col)
+        {
+            f32 film_x = -1.0 + 2.0 * ((f32)col / (f32)buffer->width);
+            
+            v3 color = {};
+            f32 color_contribution = 1.0f / (f32)rays_per_pixel;
+            for(u32 ray_index = 0; ray_index < rays_per_pixel; ++ray_index)
+            {
+                f32 offset_x = film_x + random_bilateral() * pixel_width;
+                f32 offset_y = film_y + random_bilateral() * pixel_height;
+                
+                v3 film_position = film_center + (camera.x_axis * offset_x * half_film_width) + (camera.y_axis * offset_y * half_film_height);
+                
+                r.origin = camera.position;
+                r.direction = normalize(film_position - camera.position);
+                
+                color += color_contribution * ray_cast(world, r.origin, r.direction);
+            }
+            
+            set_pixel(buffer, col, row, V4(color, 1.0));
+        }
+    }
 }
