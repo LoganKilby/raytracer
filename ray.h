@@ -21,7 +21,6 @@ struct sphere
     v3 origin;
     f32 radius;
     int id;
-    glm::mat4 transform;
     material material;
     int material_index;
 };

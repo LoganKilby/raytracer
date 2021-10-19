@@ -1,39 +1,5 @@
 #include "shading.h"
 
-internal v4
-calc_point_light(material material, point_light light, v3 view_point, v3 eyev, v3 surface_normal)
-{
-    v3 normal = v3(surface_normal);
-    v3 eye_vector = v3(eyev);
-    
-    v3 effective_color = v3(material.color) * light.intensity;
-    v3 ambient_component = effective_color * material.ambient;
-    
-    v3 light_direction = glm::normalize(light.position - view_point);
-    f32 light_dot_normal = glm::max(glm::dot(light_direction, normal), 0.0f);
-    v3 diffuse_component = light_dot_normal * material.diffuse * effective_color;
-    
-    v3 reflect_dir = glm::reflect(-light_direction, normal);
-    f32 spec_factor = glm::pow(glm::max(glm::dot(reflect_dir, eye_vector), 0.0f), material.shininess);
-    v3 specular_component = light.intensity * spec_factor * material.specular;
-    
-    v4 result = v4(v3(ambient_component + diffuse_component + specular_component), 1); 
-    
-    return result;
-}
-
-inline material
-default_material()
-{
-    material m;
-    m.color = v4(1, 1, 1, 0);
-    m.ambient = 0.1f;
-    m.diffuse = 0.9f;
-    m.specular = 0.9f;
-    m.shininess = 200.0f;
-    return m;
-}
-
 internal void
 u32_array_shuffle(u32 *data, int count)
 {
@@ -190,26 +156,6 @@ generate_shuffled_indices(pixel_sampler *sampler)
         }
         
         free(indices);
-    }
-}
-
-internal void
-generate_jittered_samples(pixel_sampler *sampler)
-{
-    int n = (int)sqrt(sampler->num_samples);
-    
-    int sets = sampler->num_sets;
-    int current_index = 0;
-    for(int p = 0; p < sets; ++p)
-    {
-        for(int j = 0; j < n; ++j)
-        {
-            for(int k = 0; k < n; ++k)
-            {
-                v2 p = v2((k + f32rand()) / n, (j + f32rand()) / n);
-                sampler->samples[current_index++] = p;
-            }
-        }
     }
 }
 
@@ -413,6 +359,6 @@ map_samples_to_unit_hemisphere(pixel_sampler *sampler, f32 e)
         v = sin_theta * sin_phi;
         w = cos_theta;
         
-        sampler->hemisphere_samples[i] = v3(u, v, w);
+        sampler->hemisphere_samples[i] = V3(u, v, w);
     }
 }

@@ -15,8 +15,6 @@ struct material
     v3 reflect_color;
     f32 scatter; // 0 is pure diffuse, 1 is pure specular
     
-    
-    v4 color;
     f32 ambient;
     f32 diffuse;
     f32 specular;
