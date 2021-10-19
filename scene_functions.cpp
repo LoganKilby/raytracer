@@ -1,8 +1,6 @@
 internal void
-scene2_hmh(pixel_buffer buffer, u32 *total_bounces)
+scene2_hmh(pixel_buffer *buffer)
 {
-    f32 percent_progress = 0;
-    
     material materials[7] = {};
     materials[0].emit_color = V3(0.3f, 0.4f, 0.5f);
     materials[1].reflect_color = V3(0.5f, 0.5f, 0.5f);
@@ -45,41 +43,79 @@ scene2_hmh(pixel_buffer buffer, u32 *total_bounces)
     world.sphere_count = array_count(spheres);
     world.spheres = spheres;
     
-    u32 core_count = 4; // TODO: Get user core count
-    u32 tile_width = buffer.width / core_count;
+    u32 core_count = get_core_count();
+    u32 tile_width = buffer->width / core_count;
     u32 tile_height = tile_width;
-    printf("core_count %d with %dx%d (%dk/tile) tiles\n",core_count, tile_width, tile_height, tile_width * tile_height * 4 * 4 / 1024);
-    
-    u32 tile_count_x = (buffer.width + tile_width - 1) / tile_width;
-    u32 tile_count_y = (buffer.height + tile_height - 1) / tile_height;
+    u32 tile_count_x = (buffer->width + tile_width - 1) / tile_width;
+    u32 tile_count_y = (buffer->height + tile_height - 1) / tile_height;
     u32 total_tile_count = tile_count_x * tile_count_y;
-    u32 tiles_retired = 0;
+    printf("processing: %d cores and %d %dx%d (%dk/tile) tiles\n", core_count, total_tile_count, tile_width, tile_height, tile_width * tile_height * 4 * 4 / 1024);
+    
+    work_queue queue = {};
+    queue.rays_per_pixel = 16;
+    queue.bounce_count = 8;
+    queue.work_orders = (work_order *)malloc(sizeof(work_order) * total_tile_count);
+    printf("resolution: %d by %d pixels. %d rays per pixel. %d maximum bounces per pixel\n", buffer->width, buffer->height, queue.rays_per_pixel, queue.bounce_count);
     
     for(u32 tile_y = 0; tile_y < tile_count_y; ++tile_y)
     {
         u32 min_y = tile_y * tile_height;
         u32 max_y = min_y + tile_height;
-        if(max_y > buffer.height)
+        if(max_y > buffer->height)
         {
-            max_y = buffer.height;
+            max_y = buffer->height;
         }
         
         for(u32 tile_x = 0; tile_x < tile_count_x; ++tile_x)
         {
             u32 min_x = tile_x * tile_width;
             u32 max_x = min_x + tile_width;
-            if(max_x > buffer.width)
+            if(max_x > buffer->width)
             {
-                max_x = buffer.width;
+                max_x = buffer->width;
             }
             
-            render_tile(&world, &buffer, min_x, min_y, max_x, max_y);
-            ++tiles_retired;
-            printf("\rrendering... %.0f%%", ((f32)tiles_retired / (f32)total_tile_count) * 100);
-            fflush(stdout);
+            work_order *order = queue.work_orders + queue.work_order_count++;
+            Assert(queue.work_order_count <= total_tile_count);
+            
+            order->world = &world;
+            order->buffer = buffer;
+            order->min_x = min_x;
+            order->min_y = min_y;
+            order->max_x = max_x;
+            order->max_y = max_y;
+            
         }
     }
     
+    Assert(queue.work_order_count == total_tile_count);
+    
+    locked_add_u64(&queue.next_work_order_index, 0);
+    
+    LARGE_INTEGER timer_start;
+    LARGE_INTEGER frequency;
+    QueryPerformanceFrequency(&frequency);
+    QueryPerformanceCounter(&timer_start);
+    
+    for(u32 core_index = 1; core_index < core_count; ++core_index)
+    {
+        create_worker_thread(&queue);
+    }
+    
+    while(queue.tiles_retired < total_tile_count)
+    {
+        render_tile(&queue);
+    }
+    
     printf("\n");
-    *total_bounces = world.total_bounces;
+    
+    LARGE_INTEGER timer_end;
+    QueryPerformanceCounter(&timer_end);
+    timer_end.QuadPart = timer_end.QuadPart - timer_start.QuadPart;
+    timer_end.QuadPart *= 1000000;
+    timer_end.QuadPart /= frequency.QuadPart;
+    f64 ms_elapsed = timer_end.QuadPart / 1000.0l;
+    f64 ms_per_bounce = ms_elapsed / queue.bounces_computed;
+    printf("runtime: %.3Lf ms\n", ms_elapsed);
+    printf("per-ray performance: %Lf ms\n", ms_per_bounce);
 }

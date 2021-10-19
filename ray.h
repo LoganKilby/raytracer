@@ -45,40 +45,30 @@ struct world
     u32 sphere_count;
     sphere *spheres;
     
-    u32 total_bounces;
+    u32 bounces_computed;
+    u32 tiles_retired;
 };
 
-struct geo
+struct work_order
 {
-    v3 color; // TODO: material
+    world *world;
+    pixel_buffer *buffer;
+    u32 min_x;
+    u32 min_y;
+    u32 max_x;
+    u32 max_y;
 };
 
-struct ray_hit
+struct work_queue
 {
-    int object_id;
-    f32 t0;
-    f32 t1;
-    f32 tmin;
+    u32 rays_per_pixel;
+    u32 bounce_count;
+    u32 work_order_count;
+    work_order *work_orders;
     
-    v3 local_hit_point;
-    v3 normal;
-    v4 rgb; // ?
+    volatile u64 bounces_computed;
+    volatile u64 next_work_order_index;
+    volatile u64 tiles_retired;
 };
-
-struct ray_hit_group
-{
-    ray_hit *hits;
-    int count;
-    int max_count;
-};
-
-inline v2
-ray_screen_coordinates(int col, int row, int width, int height)
-{
-    v2 result;
-    result.x = (col - width / 2.0f) + 0.5f;
-    result.y = (row - height / 2.0f) + 0.5f;
-    return result;
-}
 
 #endif //RAY_H

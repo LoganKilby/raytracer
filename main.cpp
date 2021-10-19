@@ -40,24 +40,10 @@ linear_to_srgb(f32 linear)
 int main()
 {
     srand(8902304984);
-    LARGE_INTEGER timer_start;
-    LARGE_INTEGER frequency;
-    QueryPerformanceFrequency(&frequency);
-    QueryPerformanceCounter(&timer_start);
     
     u32 total_bounces;
     pixel_buffer buffer = allocate_pixel_buffer(1280, 720);
-    scene2_hmh(buffer, &total_bounces);
-    
-    LARGE_INTEGER timer_end;
-    QueryPerformanceCounter(&timer_end);
-    timer_end.QuadPart = timer_end.QuadPart - timer_start.QuadPart;
-    timer_end.QuadPart *= 1000000;
-    timer_end.QuadPart /= frequency.QuadPart;
-    f64 ms_elapsed = timer_end.QuadPart / 1000.0l;
-    f64 ms_per_bounce = ms_elapsed / total_bounces;
-    printf("Runtime: %.3Lf ms\n", ms_elapsed);
-    printf("Per-Ray Performance: %Lf ms\n", ms_per_bounce);
+    scene2_hmh(&buffer);
     
     f32 gamma = 2.2f;;
     write_ppm(buffer.data, buffer.width, buffer.height, gamma, "test.ppm");
@@ -120,47 +106,22 @@ write_ppm(f32 *pixel_data, int width, int height, f32 gamma, char *filename)
     v4 pixel_color;
     v3 *pixel;
     
-    if(gamma != 1.0)
+    f32 inv_gamma = 1.0f / gamma;
+    for(f32 *row = pixel_data; 
+        row < pixel_data + height * pitch; 
+        row += pitch)
     {
-        f32 inv_gamma = 1.0f / gamma;
-        for(f32 *row = pixel_data; 
-            row < pixel_data + height * pitch; 
-            row += pitch)
+        for(f32 *col = row; col < row + pitch; col += 4)
         {
-            for(f32 *col = row; col < row + pitch; col += 4)
-            {
-                pixel = (v3 *)col;
-                //v3_f32_pow(pixel, inv_gamma);
-                
-                r = (u8)(linear_to_srgb(pixel->r) * 255);
-                g = (u8)(linear_to_srgb(pixel->g) * 255);
-                b = (u8)(linear_to_srgb(pixel->b) * 255);
-                
-                fprintf(file_handle, "%u %u %u ", r, g, b);
-            }
+            pixel = (v3 *)col;
+            r = (u8)(linear_to_srgb(pixel->r) * 255);
+            g = (u8)(linear_to_srgb(pixel->g) * 255);
+            b = (u8)(linear_to_srgb(pixel->b) * 255);
             
-            fprintf(file_handle, "\n");
+            fprintf(file_handle, "%u %u %u ", r, g, b);
         }
-    }
-    else
-    {
-        for(f32 *row = pixel_data; 
-            row < pixel_data + height * pitch; 
-            row += pitch)
-        {
-            for(f32 *col = row; col < row + pitch; col += 4)
-            {
-                pixel = (v3 *)col;
-                
-                r = (u8)(clampf(pixel->r, 0, 1) * 255);
-                g = (u8)(clampf(pixel->g, 0, 1) * 255);
-                b = (u8)(clampf(pixel->b, 0, 1) * 255);
-                
-                fprintf(file_handle, "%u %u %u ", r, g, b);
-            }
-            
-            fprintf(file_handle, "\n");
-        }
+        
+        fprintf(file_handle, "\n");
     }
     
     fclose(file_handle);
