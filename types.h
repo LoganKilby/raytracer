@@ -7,13 +7,17 @@
 #define local_variable static
 #define global_variable static
 
+#include <stdint.h>
+
 typedef float f32;
 typedef double f64;
-typedef __int32 s32;
-typedef __int64 s64;
-typedef unsigned int u32;
-typedef unsigned long u64;
+typedef int32_t s32;
+typedef int64_t s64;
+typedef uint32_t u32;
+typedef uint64_t u64;
 typedef unsigned char u8;
 typedef int b32;
+
+#define U32_MAX ((u32)-1)
 
 #endif //TYPES_H

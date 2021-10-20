@@ -8,3 +8,10 @@ build/main.obj
 build/test.obj
 *.ctm
 timing.ctm
+build/.vs/raytracer/v16/Browse.VC.db
+build/.vs/raytracer/v16/Browse.VC.db-shm
+build/.vs/raytracer/v16/Browse.VC.db-wal
+build/.vs/raytracer/v16/Browse.VC.opendb
+build/.vs/raytracer/v16/ipch/AutoPCH/5315364b8ddd8145/MAIN.ipch
+build/.vs/raytracer/v16/ipch/AutoPCH/ec1e76229c505e9/MAIN.ipch
+build/.vs/raytracer/v16/.suo

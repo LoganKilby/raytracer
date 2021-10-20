@@ -11,7 +11,7 @@ u32_array_shuffle(u32 *data, int count)
     for(;;)
     {
         u = f32rand();
-        k = (j * u) + 1;
+        k = (int)(j * u) + 1;
         temp = data[k];
         data[k] = data[j];
         data[j] = temp;
@@ -37,7 +37,7 @@ int_array_shuffle(int *data, int count)
     for(;;)
     {
         u = f32rand();
-        k = (j * u) + 1;
+        k = (int)(j * u) + 1;
         temp = data[k];
         data[k] = data[j];
         data[j] = temp;
@@ -63,7 +63,7 @@ v2_array_shuffle_x(v2 *data, int count)
     for(;;)
     {
         u = f32rand();
-        k = (j * u) + 1;
+        k = (int)(j * u) + 1;
         temp = data[k].x;
         data[k].x = data[j].x;
         data[j].x = temp;
@@ -89,7 +89,7 @@ v2_array_shuffle_y(v2 *data, int count)
     for(;;)
     {
         u = f32rand();
-        k = (j * u) + 1;
+        k = (int)(j * u) + 1;
         temp = data[k].y;
         data[k].y = data[j].y;
         data[j].y = temp;
@@ -266,8 +266,8 @@ map_samples_to_unit_disk(pixel_sampler *sampler)
     for(int j = 0; j < total_samples; ++j)
     {
         // map sample point to [-1, 1] [-1, 1]
-        sample_point.x = 2.0 * sampler->samples[j].x - 1.0;
-        sample_point.y = 2.0 * sampler->samples[j].y - 1.0;
+        sample_point.x = 2.0f * sampler->samples[j].x - 1.0f;
+        sample_point.y = 2.0f * sampler->samples[j].y - 1.0f;
         
         // x > y; x > -y
         if(sample_point.x > -sample_point.y)
@@ -308,8 +308,8 @@ map_samples_to_unit_disk(pixel_sampler *sampler)
         }
         
         phi *= PI / 4;
-        sampler->disk_samples[j].x = r * cos(phi);
-        sampler->disk_samples[j].y = r * sin(phi);
+        sampler->disk_samples[j].x = r * (f32)cos(phi);
+        sampler->disk_samples[j].y = r * (f32)sin(phi);
     }
 }
 
@@ -351,10 +351,10 @@ map_samples_to_unit_hemisphere(pixel_sampler *sampler, f32 e)
     f32 u, v, w;
     for(int i = 0; i < total_samples; ++i)
     {
-        cos_phi = cos(2.0 * PI * sampler->samples[i].x);
-        sin_phi = sin(2.0 * PI * sampler->samples[i].x);
-        cos_theta = pow(1 - sampler->samples[i].y, 1 / (e + 1));
-        sin_theta = sqrt(1 - cos_theta * cos_theta);
+        cos_phi = (f32)cos(2.0f * PI * sampler->samples[i].x);
+        sin_phi = (f32)sin(2.0f * PI * sampler->samples[i].x);
+        cos_theta = (f32)pow(1 - sampler->samples[i].y, 1 / (e + 1));
+        sin_theta = square_root(1 - cos_theta * cos_theta);
         u = sin_theta * cos_phi;
         v = sin_theta * sin_phi;
         w = cos_theta;

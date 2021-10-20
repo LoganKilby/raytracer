@@ -31,7 +31,7 @@ linear_to_srgb(f32 linear)
     f32 srgb = linear * 12.95f;;
     if(linear > 0.0031308f)
     {
-        srgb = 1.055f * pow(linear, 1.0f/2.4f) - 0.055f;
+        srgb = 1.055f * (f32)pow(linear, 1.0f/2.4f) - 0.055f;
     }
     
     return srgb;
@@ -39,19 +39,16 @@ linear_to_srgb(f32 linear)
 
 int main()
 {
-    srand(8902304984);
-    
-    u32 total_bounces;
     pixel_buffer buffer = allocate_pixel_buffer(1280, 720);
     scene2_hmh(&buffer);
     
-    f32 gamma = 2.2f;;
+    f32 gamma = 2.2f;
     write_ppm(buffer.data, buffer.width, buffer.height, gamma, "test.ppm");
     return 0;
 }
 
 inline void
-set_pixel(pixel_buffer *buffer, int col, int row, v4 color)
+set_pixel(pixel_buffer *buffer, u32 col, u32 row, v4 color)
 {
     if((col >= buffer->width || col < 0) || ((row >= buffer->height || row < 0)))
         return;
@@ -103,7 +100,6 @@ write_ppm(f32 *pixel_data, int width, int height, f32 gamma, char *filename)
     
     int pitch = width * 4;
     u8 r, g, b;
-    v4 pixel_color;
     v3 *pixel;
     
     f32 inv_gamma = 1.0f / gamma;

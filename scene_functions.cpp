@@ -53,9 +53,9 @@ scene2_hmh(pixel_buffer *buffer)
     
     work_queue queue = {};
     queue.rays_per_pixel = 16;
-    queue.bounce_count = 8;
+    queue.max_bounce_count = 8;
     queue.work_orders = (work_order *)malloc(sizeof(work_order) * total_tile_count);
-    printf("resolution: %d by %d pixels. %d rays per pixel. %d maximum bounces per pixel\n", buffer->width, buffer->height, queue.rays_per_pixel, queue.bounce_count);
+    printf("resolution: %d by %d pixels. %d rays per pixel. %d maximum bounces per pixel\n", buffer->width, buffer->height, queue.rays_per_pixel, queue.max_bounce_count);
     
     for(u32 tile_y = 0; tile_y < tile_count_y; ++tile_y)
     {
@@ -85,6 +85,9 @@ scene2_hmh(pixel_buffer *buffer)
             order->max_x = max_x;
             order->max_y = max_y;
             
+            // TODO: repleace with real entropy
+            random_series entropy = {tile_x * 1235 + tile_y * 23088};
+            order->entropy = entropy;
         }
     }
     
@@ -114,7 +117,7 @@ scene2_hmh(pixel_buffer *buffer)
     timer_end.QuadPart = timer_end.QuadPart - timer_start.QuadPart;
     timer_end.QuadPart *= 1000000;
     timer_end.QuadPart /= frequency.QuadPart;
-    f64 ms_elapsed = timer_end.QuadPart / 1000.0l;
+    f64 ms_elapsed = (f64)timer_end.QuadPart / (f64)1000;
     f64 ms_per_bounce = ms_elapsed / queue.bounces_computed;
     printf("runtime: %.3Lf ms\n", ms_elapsed);
     printf("per-ray performance: %Lf ms\n", ms_per_bounce);

@@ -107,20 +107,6 @@ f32rand()
     return result;
 }
 
-inline f32
-random_unilateral()
-{
-    f32 result = (f32)rand() / (f32)RAND_MAX;
-    return result;
-}
-
-inline f32
-random_bilateral()
-{
-    f32 result = -1.0f + 2.0f * random_unilateral();
-    return result;
-}
-
 inline v3
 hadamard(v3 a, v3 b)
 {
@@ -134,9 +120,9 @@ hadamard(v3 a, v3 b)
 inline void
 v3_f32_pow(v3 *v, f32 s)
 {
-    v->x = pow(v->x, s);
-    v->y = pow(v->y, s);
-    v->z = pow(v->z, s);
+    v->x = (f32)pow(v->x, s);
+    v->y = (f32)pow(v->y, s);
+    v->z = (f32)pow(v->z, s);
 }
 
 internal f32
@@ -249,11 +235,18 @@ outer(v3 a, v3 b)
 inline v3
 normalize(v3 a)
 {
-    f32 inv_sqrt = 1 / sqrt(inner(a, a));
+    f32 inv_sqrt = 1 / (f32)sqrt(inner(a, a));
     v3 result;
     result.x = a.x * inv_sqrt;
     result.y = a.y * inv_sqrt;
     result.z = a.z * inv_sqrt;
+    return result;
+}
+
+inline f32
+square_root(f32 a)
+{
+    f32 result = (f32)sqrt(a);
     return result;
 }
 
