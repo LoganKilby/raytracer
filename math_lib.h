@@ -31,6 +31,8 @@ struct v3
     };
 };
 
+typedef v3 lane_v3;
+
 struct v4
 {
     union

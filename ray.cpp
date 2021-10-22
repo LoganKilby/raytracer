@@ -47,6 +47,14 @@ locked_add_u64(volatile u64 *addend, u64 value)
 }
 
 internal void
+conditional_assign()
+{
+    
+}
+
+
+// 1:37:32
+internal void
 cast_sample_rays(ray_cast_state *state)
 {
     // in
@@ -65,77 +73,81 @@ cast_sample_rays(ray_cast_state *state)
     v3 camera_y_axis = state->camera_y_axis; 
     v3 camera_position = state->camera_position;
     
-    
     ray r;
-    f32 color_contribution = 1.0f / state->rays_per_pixel;
+    u32 lane_width = 4;
+    u32 lane_ray_count = rays_per_pixel / lane_width;
+    f32 color_contribution = 1.0f / lane_ray_count;
     u64 bounces_computed = 0;
     v3 final_color = {};
-    for(u32 ray_index = 0; ray_index < rays_per_pixel; ++ray_index)
+    for(u32 ray_index = 0; ray_index < lane_ray_count; ++ray_index)
     {
-        f32 offset_x = film_x + random_bilateral(series) * half_pixel_width;
-        f32 offset_y = film_y + random_bilateral(series) * half_pixel_height;
+        lane_f32 offset_x = film_x + random_bilateral(series) * half_pixel_width;
+        lane_f32 offset_y = film_y + random_bilateral(series) * half_pixel_height;
         
-        v3 film_position = film_center + camera_x_axis * offset_x * half_film_width + camera_y_axis * offset_y * half_film_height;
+        lane_v3 film_position = film_center + camera_x_axis * offset_x * half_film_width + camera_y_axis * offset_y * half_film_height;
         
         r.origin = camera_position;
         r.direction = normalize(film_position - camera_position);
         
-        v3 sample = {};
-        f32 hit_distance = FLT_MAX;
-        v3 attenuation = V3(1, 1, 1);
+        lane_v3 sample = {};
+        lane_v3 attenuation = V3(1, 1, 1);
         
+        lane_u32 bounces_computed = 0;
+        lane_u32 lane_increment = 1;
+        lane_u32 lane_mask = 0xFFFFFFFF;
         for(u32 bounce_count = 0; bounce_count < max_bounce_count; ++bounce_count)
         {
-            v3 hit_normal = {};
-            u32 hit_mat_index = 0;
+            lane_v3 hit_normal = {};
+            lane_f32 hit_distance = FLT_MAX;
+            lane_u32 hit_mat_index = 0;
             
-            ++bounces_computed;
+            bounces_computed += lane_increment;
             
             for(u32 plane_index = 0; plane_index < world->plane_count; ++plane_index)
             {
                 plane plane = world->planes[plane_index];
-                f32 denom = inner(plane.normal, r.direction);
-                if(fabs(denom) > EPSILON)
-                {
-                    f32 t = (-plane.d - inner(plane.normal, r.origin)) / denom;
-                    
-                    if((t > EPSILON) && (t < hit_distance))
-                    {
-                        hit_distance = t;
-                        hit_mat_index = plane.material_index;
-                        hit_normal = plane.normal;
-                    }
-                }
+                lane_v3 plane_normal = plane.normal;
+                lane_f32 plane_d = plane.d;
+                lane_u32 plane_mat_index = plane.material_index;
+                
+                lane_f32 denom = inner(plane.normal, r.direction);
+                lane_f32 t = (-plane_d - inner(plane_normal, r.origin)) / denom;
+                
+                lane_u32 denom_mask = (denom < -EPSILON) || (denom > EPSILON);
+                lane_u32 t_mask = (t > EPSILON) && (t < hit_distance);
+                lane_u32 hit_mask = denom_mask & t_mask;
+                
+                conditional_assign(&hit_distance, hit_mask, t);
+                conditional_assign(&hit_mat_index, hit_mask, plane_material_index);
+                conditional_assign(&hit_normal, hit_mask, plane.normal);
             }
             
             for(u32 sphere_index = 0; sphere_index < world->sphere_count; ++sphere_index)
             {
                 sphere sphere = world->spheres[sphere_index];
-                v3 sphere_relative_ray_origin = r.origin - sphere.origin;
-                f32 a = inner(r.direction, r.direction);
-                f32 b =  2.0f * inner(r.direction, sphere_relative_ray_origin);
-                f32 c = inner(sphere_relative_ray_origin, sphere_relative_ray_origin) - sphere.radius * sphere.radius;
-                f32 denom = 2.0f * a;
-                f32 descriminant = square_root(b * b - 4.0f * a * c);
+                lane_v3 sphere_origin = sphere.origin;
+                lane_f32 sphere_radius = sphere.radius;
+                lane_u32 sphere_material_index = sphere.material_index;
+                lane_v3 sphere_relative_ray_origin = r.origin - sphere_origin;
+                lane_f32 a = inner(r.direction, r.direction);
+                lane_f32 b =  2.0f * inner(r.direction, sphere_relative_ray_origin);
+                lane_f32 c = inner(sphere_relative_ray_origin, sphere_relative_ray_origin) - sphere_radius * sphere_radius;
+                lane_f32 denom = 2.0f * a;
+                lane_f32 descriminant = square_root(b * b - 4.0f * a * c);
                 
-                if(descriminant > EPSILON)
-                {
-                    f32 tp = (-b + descriminant) / denom;
-                    f32 tn = (-b - descriminant) / denom;
-                    
-                    f32 t = tp;
-                    if((tn > EPSILON) && (tn < tp))
-                    {
-                        t = tn;
-                    }
-                    
-                    if((t > EPSILON) && (t < hit_distance))
-                    {
-                        hit_distance = t;
-                        hit_mat_index = sphere.material_index;
-                        hit_normal = normalize(t * r.direction + sphere_relative_ray_origin);
-                    }
-                }
+                f32 tp = (-b + descriminant) / denom;
+                f32 tn = (-b - descriminant) / denom;
+                lane_u32 descriminant_mask = (descriminant > EPSILON);
+                
+                lane_f32 t = tp;
+                lane_u32 pick_mask = ((tn > EPSILON) && (tn < tp));
+                conditional_assign(&t, pick_mask, tn);
+                
+                lane_u32 t_mask = ((t > EPSILON) && (t < hit_distance));
+                lane_u32 hit_mask = descriminant_mask & t_mask;
+                conditional_assign(&hit_distance, hit_mask, t);
+                conditional_assign(&hit_mat_index, hit_mask, sphere_material_index);
+                conditional_assign(&hit_normal, hit_mask, normalize(t * r.direction + sphere_relative_ray_origin));
             }
             
             if(hit_mat_index)
@@ -167,7 +179,7 @@ cast_sample_rays(ray_cast_state *state)
     }
     
     state->final_color = final_color;
-    state->bounces_computed = bounces_computed;
+    state->bounces_computed = horizontal_add(bounces_computed);
 }
 
 internal bool
@@ -267,4 +279,3 @@ get_core_count()
     Assert(result);
     return result;
 }
-
