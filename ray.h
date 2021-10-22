@@ -22,7 +22,7 @@ struct sphere
     f32 radius;
     int id;
     material material;
-    int material_index;
+    u32 material_index;
 };
 
 struct plane

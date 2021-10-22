@@ -86,29 +86,6 @@ V3(f32 a, f32 b, f32 c)
     return result;
 }
 
-inline f64 
-_phi(f64 x, f64 z)
-{
-    double phi = atan2(x, z);
-    if(phi < 0.0f)
-        phi += TWO_PI;
-    
-    return phi;
-}
-
-inline int
-rand_int()
-{
-    return rand();
-}
-
-inline f32
-f32rand()
-{
-    f32 result = (f32)rand() / (f32)RAND_MAX;
-    return result;
-}
-
 inline v3
 hadamard(v3 a, v3 b)
 {
@@ -224,6 +201,44 @@ inner(v3 a, v3 b)
     return result;
 }
 
+inline f32
+length_squared(v3 a)
+{
+    f32 result = inner(a, a);
+    return result;
+}
+
+inline f32
+length(v3 a)
+{
+    f32 result = square_root(length_squared(a));
+    return result;
+}
+
+inline v3
+normalize(v3 a)
+{
+    f32 inv_sqrt = 1 / square_root(length_squared(a));
+    v3 result;
+    result.x = a.x * inv_sqrt;
+    result.y = a.y * inv_sqrt;
+    result.z = a.z * inv_sqrt;
+    return result;
+}
+
+inline v3
+noz(v3 a)
+{
+    v3 result = {};
+    f32 len_squared = length_squared(a);
+    if(length_squared > (0.0001f * 0.0001f))
+    {
+        result = a * (1.0f / square_root(len_squared));
+    }
+    
+    return result;
+}
+
 inline v3
 outer(v3 a, v3 b)
 {
@@ -231,17 +246,6 @@ outer(v3 a, v3 b)
     result.x = a.y*b.z - a.z*b.y;
     result.y = a.z*b.x - a.x*b.z;
     result.z = a.x*b.y - a.y*b.x;
-    return result;
-}
-
-inline v3
-normalize(v3 a)
-{
-    f32 inv_sqrt = 1 / (f32)sqrt(inner(a, a));
-    v3 result;
-    result.x = a.x * inv_sqrt;
-    result.y = a.y * inv_sqrt;
-    result.z = a.z * inv_sqrt;
     return result;
 }
 
