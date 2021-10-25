@@ -1,48 +1,176 @@
-internal void
-display_buffer_in_window(render_state *rs)
+#include "opengl.h"
+
+#define AssertUniformLoc(Integer) if(Integer == -1) {*(int *)0 = 0;}
+
+// NOTE: Example of calculating tangent and bitanent vectors
+internal void 
+RenderQuad()
 {
-    //Sleep(1000);
-    locked_exchange_u32(&rs->context_ready, 1);
-    
-    LARGE_INTEGER timer_start;
-    LARGE_INTEGER frequency;
-    QueryPerformanceFrequency(&frequency);
-    QueryPerformanceCounter(&timer_start);
-    
-    while(rs->queue->tiles_retired < rs->total_tile_count)
+    static unsigned int quadVAO, quadVBO = 0;
+    if (quadVAO == 0)
     {
-        printf("\rrendering... %.0f%%", ((f32)rs->queue->tiles_retired / (f32)rs->queue->work_order_count) * 100);
-        fflush(stdout);
+        // Quad without tangent/bitangent
+        float quadVertices[] =
+        {
+            -1.0f, 1.0f, 0.0f,  0.0f, 1.0f, // 1
+            -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,// 2
+            1.0f, -1.0f, 0.0f,  1.0f, 0.0f, // 3
+            
+            -1.0f, 1.0f, 0.0f,  0.0f, 1.0f, // 1
+            1.0f, -1.0f, 0.0f,  1.0f, 0.0f, // 3
+            1.0f, 1.0f, 0.0f,   1.0f, 1.0f   // 4
+        };
+        
+        
+        glGenVertexArrays(1, &quadVAO);
+        glGenBuffers(1, &quadVBO);
+        glBindVertexArray(quadVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+        
     }
     
-    printf("\rrendering... %.0f%%", ((f32)rs->queue->tiles_retired / (f32)rs->queue->work_order_count) * 100);
-    fflush(stdout);
-    printf("\n");
-    
-    LARGE_INTEGER timer_end;
-    QueryPerformanceCounter(&timer_end);
-    timer_end.QuadPart = timer_end.QuadPart - timer_start.QuadPart;
-    timer_end.QuadPart *= 1000000;
-    timer_end.QuadPart /= frequency.QuadPart;
-    f64 ms_elapsed = (f64)timer_end.QuadPart / (f64)1000;
-    f64 ms_per_bounce = ms_elapsed / rs->queue->bounces_computed;
-    printf("runtime: %.3Lf ms\n", ms_elapsed);
-    printf("per-ray performance: %Lf ms\n", ms_per_bounce);
-    locked_exchange_u32(&rs->render_in_progress, 0);
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
 }
 
-internal DWORD 
-WINAPI render_thread(void *lpParameter)
+// TODO: Probably want to take an array of compiled shaders
+// TODO: Probably don't need a program struct
+internal u32
+CreateShaderProgram(GLuint VertexShaderID, GLuint FragmentShaderID)
 {
-    render_state *rs = (render_state *)lpParameter;
-    display_buffer_in_window(rs);
-    return 0;
+    u32 Result = glCreateProgram();
+    
+    glAttachShader(Result, VertexShaderID);
+    glAttachShader(Result, FragmentShaderID);
+    glLinkProgram(Result);
+    
+    int LinkStatus;
+    glGetProgramiv(Result, GL_LINK_STATUS, &LinkStatus);
+    if(LinkStatus == GL_FALSE)
+    {
+        fprintf(stderr, "ERROR: Shader link error (Program ID: %d)\n", Result);
+        int LogLength;
+        glGetProgramiv(Result, GL_INFO_LOG_LENGTH, &LogLength);
+        if(LogLength)
+        {
+            char *LogBuffer = (char *)malloc(LogLength);
+            memset(LogBuffer, 0, LogLength);
+            glGetProgramInfoLog(Result, LogLength, NULL, LogBuffer);
+            fprintf(stderr, "%s\n\n", LogBuffer);
+            free(LogBuffer);
+        }
+    }
+    
+    // NOTE: glDeleteShader sets a flag for deletion. A shader won't be deleted while attached to a program.
+    
+    glDeleteShader(VertexShaderID); 
+    glDeleteShader(FragmentShaderID);
+    
+    return Result;
+}
+
+static char *
+ReadEntireFileToString(char *Filename)
+{
+    HANDLE FileHandle = CreateFileA(Filename,
+                                    GENERIC_READ,
+                                    0,
+                                    0,
+                                    OPEN_EXISTING,
+                                    FILE_ATTRIBUTE_NORMAL, // TODO: Read only?
+                                    0);
+    
+    if(FileHandle == INVALID_HANDLE_VALUE)
+    {
+        // TODO: Logging
+        fprintf(stderr, "WARNING: Windows could not open the file %s.\n", Filename);
+        return 0;
+    }
+    
+    unsigned int FileSizeInBytes = GetFileSize(FileHandle, 0);
+    char *FileBuffer = 0;
+    if(FileSizeInBytes)
+    {
+        FileBuffer = (char *)malloc(FileSizeInBytes + 1);
+        memset(FileBuffer, 0, FileSizeInBytes + 1);
+        
+        unsigned long int BytesRead;
+        bool FileRead = ReadFile(FileHandle, FileBuffer, FileSizeInBytes, &BytesRead, 0);
+        if(!FileRead)
+        {
+            // TODO: Logging
+            fprintf(stderr, "WARNING: Windows encountered an error while reading from \"%s\". File read aborted.", Filename);
+            free(FileBuffer);
+            FileBuffer = 0;
+        }
+    }
+    
+    CloseHandle(FileHandle);
+    
+    return FileBuffer;
+}
+
+internal u32
+LoadAndCompileShader(char *Filename, GLenum ShaderType)
+{
+    u32 ResultID = 0;
+    char *ShaderTypeString;
+    switch(ShaderType)
+    {
+        case GL_VERTEX_SHADER:
+        ShaderTypeString = "GL_VERTEX_SHADER";
+        break;
+        case GL_FRAGMENT_SHADER:
+        ShaderTypeString = "GL_FRAGMENT_SHADER";
+        break;
+        default:
+        {
+            ShaderTypeString = "UNKNOWN_SHADER_TYPE";
+        }
+    }
+    
+    char *ShaderSource = ReadEntireFileToString(Filename);
+    
+    if(ShaderSource)
+    {
+        ResultID = glCreateShader(ShaderType);
+        glShaderSource(ResultID, 1, &ShaderSource, NULL);
+        glCompileShader(ResultID);
+        
+        int CompilationStatus;
+        glGetShaderiv(ResultID, GL_COMPILE_STATUS, &CompilationStatus);
+        if(CompilationStatus == GL_FALSE)
+        {
+            int LogLength;
+            glGetShaderiv(ResultID, GL_INFO_LOG_LENGTH, &LogLength);
+            char *LogBuffer = (char *)malloc(LogLength);
+            memset(LogBuffer, 0, LogLength);
+            glGetShaderInfoLog(ResultID, LogLength, NULL, LogBuffer);
+            
+            fprintf(stderr, "\nERROR: Shader compilation error (%s): %s\n", ShaderTypeString, Filename);
+            fprintf(stderr, "%s", LogBuffer);
+            fprintf(stderr, "\n%s\n\n", ShaderSource);
+            
+            free(LogBuffer);
+        }
+        
+        free(ShaderSource);
+    }
+    
+    return ResultID;
 }
 
 internal void
-begin_render_thread(void *param)
+SetUniform1i(int Program, char *Name, int Data)
 {
-    DWORD thread_id;
-    HANDLE thread_handle = CreateThread(0, 0, render_thread, param, 0, &thread_id);
-    CloseHandle(thread_handle);
+    glUseProgram(Program);
+    GLint UniformLocation = glGetUniformLocation(Program, Name);
+    AssertUniformLoc(UniformLocation);
+    glUniform1i(UniformLocation, Data);
 }
