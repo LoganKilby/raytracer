@@ -3,10 +3,11 @@
 #include "math_lib.h"
 #include "main.h"
 #include "time.h"
+#include "include/GL/glew.h"
+#include "include/GLFW/glfw3.h"
 
-#include "camera.cpp"
 #include "ray.cpp"
-#include "shading.cpp"
+#include "opengl.cpp"
 #include "scene_functions.cpp"
 
 // Forman Action (books):
@@ -39,7 +40,45 @@ linear_to_srgb(f32 linear)
 
 int main()
 {
-    pixel_buffer buffer = allocate_pixel_buffer(1280, 720);
+    if(glfwInit())
+    {
+        printf("GLFW Initialized\n");
+        printf(glfwGetVersionString());
+        printf("\n\n");
+    }
+    else
+    {
+        // TODO: Logging
+        printf("ERROR: GLFW failed to initialize\n");
+    }
+    
+    s32 image_width = 1280;
+    s32 image_height = 720;
+    
+#if 0
+    GLFWwindow *Window = glfwCreateWindow(image_width, image_height, "raytracer", NULL, NULL);
+    glfwMakeContextCurrent(Window);
+    
+    
+    GLenum GlewError = glewInit();
+    if(GlewError == GLEW_OK)
+    {
+        printf("INFO: OpenGL Initialized.\n");
+        printf("Vendor: "); printf((char *)glGetString(GL_VENDOR)); printf("\n");
+        printf("Renderer: "); printf((char *)glGetString(GL_RENDERER)); printf("\n");
+        printf("OpenGL Version: "); printf((char *)glGetString(GL_VERSION)); printf("\n\n");
+        
+        glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+        glEnable(GL_DEPTH_TEST);
+        glEnable(GL_MULTISAMPLE);
+    }
+    else
+    {
+        printf("ERROR: Glew failed to initialize");
+    }
+#endif
+    
+    pixel_buffer buffer = allocate_pixel_buffer(image_width, image_height);
     scene2_hmh(&buffer);
     
     f32 gamma = 2.2f;

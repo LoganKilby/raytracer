@@ -31,8 +31,6 @@ struct v3
     };
 };
 
-typedef v3 lane_v3;
-
 struct v4
 {
     union
@@ -53,6 +51,8 @@ struct v2
 {
     f32 x, y;
 };
+
+#include "ray_lane.h"
 
 inline v4
 V4(f32 a, f32 b, f32 c, f32 d)
@@ -209,6 +209,13 @@ length_squared(v3 a)
 }
 
 inline f32
+square_root(f32 a)
+{
+    f32 result = (f32)sqrt(a);
+    return result;
+}
+
+inline f32
 length(v3 a)
 {
     f32 result = square_root(length_squared(a));
@@ -231,7 +238,7 @@ noz(v3 a)
 {
     v3 result = {};
     f32 len_squared = length_squared(a);
-    if(length_squared > (0.0001f * 0.0001f))
+    if(len_squared > (0.0001f * 0.0001f))
     {
         result = a * (1.0f / square_root(len_squared));
     }
@@ -246,13 +253,6 @@ outer(v3 a, v3 b)
     result.x = a.y*b.z - a.z*b.y;
     result.y = a.z*b.x - a.x*b.z;
     result.z = a.x*b.y - a.y*b.x;
-    return result;
-}
-
-inline f32
-square_root(f32 a)
-{
-    f32 result = (f32)sqrt(a);
     return result;
 }
 

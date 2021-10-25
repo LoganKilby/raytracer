@@ -4,7 +4,6 @@
 #define RAY_H
 
 #include "types.h"
-#include "shading.h"
 
 global_variable int global_entity_id = 0;
 
@@ -16,21 +15,24 @@ struct ray
     v3 direction;
 };
 
+struct material
+{
+    v3 emit_color;
+    v3 reflect_color;
+    f32 scatter; // 0 is pure diffuse, 1 is pure specular
+};
+
 struct sphere
 {
     v3 origin;
     f32 radius;
-    int id;
-    material material;
     u32 material_index;
 };
 
 struct plane
 {
-    v3 origin;
     v3 normal;
     f32 d;
-    material material;
     int material_index;
 };
 
@@ -51,7 +53,7 @@ struct world
 
 struct random_series
 {
-    u32 state;
+    lane_u32 state;
 };
 
 struct work_order
@@ -99,6 +101,16 @@ struct ray_cast_state
     // out
     v3 final_color;
     u64 bounces_computed;
+};
+
+struct render_state
+{
+    pixel_buffer *buffer;
+    work_queue *queue;
+    u32 total_tile_count;
+    
+    volatile u32 context_ready;
+    volatile u32 render_in_progress;
 };
 
 #endif //RAY_H

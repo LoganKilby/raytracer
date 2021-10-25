@@ -86,7 +86,7 @@ scene2_hmh(pixel_buffer *buffer)
             order->max_y = max_y;
             
             // TODO: repleace with real entropy
-            random_series entropy = {tile_x * 1235 + tile_y * 23088};
+            random_series entropy = { 234098 + tile_x * 1235 + tile_y * 23088};
             order->entropy = entropy;
         }
     }
@@ -95,30 +95,24 @@ scene2_hmh(pixel_buffer *buffer)
     
     locked_add_u64(&queue.next_work_order_index, 0);
     
-    LARGE_INTEGER timer_start;
-    LARGE_INTEGER frequency;
-    QueryPerformanceFrequency(&frequency);
-    QueryPerformanceCounter(&timer_start);
+    render_state rs = {};
+    rs.buffer = buffer;
+    rs.queue = &queue;
+    rs.render_in_progress = 1;
+    rs.total_tile_count = total_tile_count;
+    begin_render_thread(&rs);
     
-    for(u32 core_index = 1; core_index < core_count; ++core_index)
+    b32 threads_created = 0;
+    while(rs.render_in_progress)
     {
-        create_worker_thread(&queue);
+        if(rs.context_ready && !threads_created)
+        {
+            for(u32 core_index = 1; core_index < core_count; ++core_index)
+            {
+                create_worker_thread(&queue);
+            }
+            
+            threads_created = 1;
+        }
     }
-    
-    while(queue.tiles_retired < total_tile_count)
-    {
-        render_tile(&queue);
-    }
-    
-    printf("\n");
-    
-    LARGE_INTEGER timer_end;
-    QueryPerformanceCounter(&timer_end);
-    timer_end.QuadPart = timer_end.QuadPart - timer_start.QuadPart;
-    timer_end.QuadPart *= 1000000;
-    timer_end.QuadPart /= frequency.QuadPart;
-    f64 ms_elapsed = (f64)timer_end.QuadPart / (f64)1000;
-    f64 ms_per_bounce = ms_elapsed / queue.bounces_computed;
-    printf("runtime: %.3Lf ms\n", ms_elapsed);
-    printf("per-ray performance: %Lf ms\n", ms_per_bounce);
 }
