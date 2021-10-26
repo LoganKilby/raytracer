@@ -42,11 +42,11 @@ xor_shift_32(random_series *series)
 internal lane_f32
 random_unilateral(random_series *series)
 {
-    lane_f32 result = lane_f32_from_u32(xor_shift_32(series)) / lane_f32_from_u32(U32_MAX);
+    lane_f32 result = lane_f32_from_u32(xor_shift_32(series)) / (f32)U32_MAX;
     return result;
 }
 
-internal f32
+internal lane_f32
 random_bilateral(random_series *series)
 {
     lane_f32 result = -1.0f + 2.0f * random_unilateral(series);

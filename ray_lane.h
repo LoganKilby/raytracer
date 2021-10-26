@@ -45,11 +45,14 @@ struct lane_f32
 {
     __m128 v;
     
+    lane_f32 &operator=(f32 a);
 };
 
 struct lane_u32
 {
     __m128i v;
+    
+    lane_u32 &operator=(u32 a);
 };
 
 struct lane_v3
@@ -59,7 +62,125 @@ struct lane_v3
     __m128 z;
 };
 
+inline lane_u32
+operator^(lane_u32 a, lane_u32 b)
+{
+    lane_u32 result;
+    result.v = _mm_xor_si128(a.v, b.v);
+    
+    return result;
+}
+
+inline lane_u32
+operator<<(lane_u32 a, u32 shift)
+{
+    lane_u32 result;
+    result.v = _mm_slli_epi32(a.v, shift);
+    
+    return result;
+}
+
+inline lane_u32
+operator>>(lane_u32 a, u32 shift)
+{
+    lane_u32 result;
+    result.v = _mm_srli_epi32(a.v, shift);
+    
+    return result;
+}
+
+inline lane_f32
+operator+(lane_f32 a, lane_f32 b)
+{
+    lane_f32 result;
+    result.v = _mm_add_ps(a.v, b.v);
+    
+    return result;
+}
+
+inline lane_f32
+operator/(lane_f32 a, lane_f32 b)
+{
+    lane_f32 result;
+    result.v = _mm_div_ps(a.v, b.v);
+    
+    return result;
+}
+
+inline lane_f32
+operator-(lane_f32 a, lane_f32 b)
+{
+    lane_f32 result;
+    result.v = _mm_sub_ps(a.v, b.v);
+    
+    return result;
+}
+
+inline lane_f32
+operator*(lane_f32 a, lane_f32 b)
+{
+    lane_f32 result;
+    result.v = _mm_mul_ps(a.v, b.v);
+    
+    return result;
+}
+
+inline lane_u32
+operator&(lane_u32 a, lane_u32 b)
+{
+    lane_u32 result;
+    result.v = _mm_and_si128(a.v, b.v);
+    
+    return result;
+}
+
+inline lane_u32
+operator|(lane_u32 a, lane_u32 b)
+{
+    lane_u32 result;
+    result.v = _mm_or_si128(a.v, b.v);
+    
+    return result;
+}
+
+internal lane_u32
+lane_u32_from_u32(u32 a)
+{
+    lane_u32 result;
+    result.v = _mm_set1_epi32(a);
+    
+    return result;
+}
+
+internal lane_f32
+lane_f32_from_u32(lane_u32 a)
+{
+    lane_f32 result;
+    result.v = _mm_cvtepi32_ps(a.v);
+    
+    return result;
+}
+
+internal lane_f32
+lane_f32_from_u32(u32 a)
+{
+    lane_f32 result;
+    result.v = _mm_set1_ps((f32)a);
+    
+    return result;
+}
+
+internal lane_f32
+lane_f32_from_f32(f32 a)
+{
+    lane_f32 result;
+    result.v = _mm_set1_ps(a);
+    
+    return result;
+}
+
 #elif (LANE_WIDTH==1)
+
 typedef f32 lane_f32;
 typedef u32 lane_u32;
 typedef v3 lane_v3;
@@ -141,6 +262,107 @@ lane_max(lane_f32 a, lane_f32 b)
 }
 #else
 #error Lane width must be set to 1, 4, or 8
+#endif
+
+#if (LANE_WIDTH != 1)
+
+inline lane_f32
+operator-(lane_f32 a, f32 b)
+{
+    lane_f32 result = a - lane_f32_from_f32(b);
+    
+    return result;
+}
+
+inline lane_f32
+operator-=(lane_f32 &a, lane_f32 b)
+{
+    a = a - b;
+    
+    return a;
+}
+
+inline lane_f32
+operator/(lane_f32 a, f32 b)
+{
+    lane_f32 result = a / lane_f32_from_f32(b);
+    
+    return result;
+}
+
+inline lane_f32
+operator*(lane_f32 a, f32 b)
+{
+    lane_f32 result = a * lane_f32_from_f32(b);
+    
+    return result;
+}
+
+inline lane_f32
+operator*=(lane_f32 &a, lane_f32 b)
+{
+    a = a * b;
+    
+    return a;
+}
+
+inline lane_f32
+operator*(f32 a, lane_f32 b)
+{
+    lane_f32 result = b * lane_f32_from_f32(a);
+    
+    return result;
+}
+
+inline lane_f32
+operator+(f32 a, lane_f32 b)
+{
+    lane_f32 result = b + lane_f32_from_f32(a);
+    
+    return result;
+}
+
+inline lane_f32
+operator+=(lane_f32 &a, lane_f32 b)
+{
+    a = a + b;
+    
+    return a;
+}
+
+inline lane_u32
+operator^=(lane_u32 &a, lane_u32 b)
+{
+    a = a ^ b;
+    
+    return a;
+}
+
+inline lane_u32
+operator&=(lane_u32 &a, lane_u32 b)
+{
+    
+    a = a & b;
+    
+    return a;
+}
+
+inline lane_u32
+operator|=(lane_u32 &a, lane_u32 b)
+{
+    a = a | b;
+    
+    return a;
+}
+
+lane_u32 &lane_u32::
+operator=(u32 a)
+{
+    *this = lane_u32_from_u32(a);
+    return(*this);
+}
+
+
 #endif
 
 #endif //RAY_LANE_H
