@@ -1,4 +1,4 @@
-#define AssertUniformLoc(Integer) if(Integer == -1) {*(int *)0 = 0;}
+#include "preview.h"
 
 internal u32
 link_program(GLuint vs_id, GLuint fs_id)
@@ -74,7 +74,7 @@ os_read_entire_file(char *file_name)
 }
 
 internal u32
-load_compile_shader(char *file_name, GLenum shader_type)
+compile_shader(char *shader_source, GLenum shader_type)
 {
     u32 result = 0;
     char *shader_type_string;
@@ -92,8 +92,6 @@ load_compile_shader(char *file_name, GLenum shader_type)
         }
     }
     
-    char *shader_source = os_read_entire_file(file_name);
-    
     if(shader_source)
     {
         result = glCreateShader(shader_type);
@@ -110,13 +108,26 @@ load_compile_shader(char *file_name, GLenum shader_type)
             memset(msg_buffer, 0, log_length);
             glGetShaderInfoLog(result, log_length, NULL, msg_buffer);
             
-            fprintf(stderr, "\nERROR: Shader compilation error (%s): %s\n", shader_type_string, file_name);
+            fprintf(stderr, "\nERROR: Shader compilation error (%s):\n", shader_type_string);
             fprintf(stderr, "%s", msg_buffer);
             fprintf(stderr, "\n%s\n\n", shader_source);
             
             free(msg_buffer);
         }
-        
+    }
+    
+    return result;
+}
+
+internal u32
+load_compile_shader(char *file_name, GLenum shader_type)
+{
+    char *shader_source = os_read_entire_file(file_name);
+    
+    u32 result = 0;
+    if(shader_source)
+    {
+        result = compile_shader(shader_source, shader_type);
         free(shader_source);
     }
     
@@ -137,10 +148,10 @@ create_quad()
 {
     f32 quad[] = {
         // positions        // texture Coords
-        -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
+        -1.0f, 1.0f, 0.0f,  0.0f, 1.0f,
         -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
-        1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
-        1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+        1.0f, 1.0f, 0.0f,   1.0f, 1.0f,
+        1.0f, -1.0f, 0.0f,  1.0f, 0.0f,
     };
     
     u32 vao, vbo;
@@ -156,4 +167,84 @@ create_quad()
     glBindVertexArray(0);
     
     return vao;
+}
+
+internal preview_context
+setup_preview_window(u32 image_width, u32 image_height)
+{
+    preview_context result = {};
+    
+    if(glfwInit())
+    {
+        printf("\nGLFW: ");
+        printf(glfwGetVersionString());
+        printf("\n");
+    }
+    else
+    {
+        // TODO: Logging
+        printf("ERROR: GLFW failed to initialize\n");
+    }
+    
+    result.window = glfwCreateWindow(image_width, image_height, "raytracer", 0, 0);
+    glfwMakeContextCurrent(result.window);
+    
+    GLenum glew_error = glewInit();
+    if(glew_error == GLEW_OK)
+    {
+        printf("Vendor: "); printf((char *)glGetString(GL_VENDOR)); printf("\n");
+        printf("Renderer: "); printf((char *)glGetString(GL_RENDERER)); printf("\n");
+        printf("OpenGL Version: "); printf((char *)glGetString(GL_VERSION)); printf("\n");
+        
+        glDisable(GL_DEPTH_TEST);
+        glEnable(GL_FRAMEBUFFER_SRGB);
+    }
+    else
+    {
+        printf("ERROR: Glew failed to initialize");
+    }
+    
+    char *vs_shader = "#version 330 core\n layout (location = 0) in vec3 aPos; layout (location = 1) in vec2 aTexCoords; out vec2 TexCoords; void main() { TexCoords = aTexCoords; gl_Position = vec4(aPos, 1.0); }";
+    char *fs_shader = "#version 330 core\n out vec4 FragColor; in vec2 TexCoords; uniform sampler2D colorBuffer; void main() { FragColor = vec4(texture(colorBuffer, TexCoords).rgb, 1.0); }";
+    
+    result.screen_quad_vao = create_quad();
+    
+    u32 vs_id = compile_shader(vs_shader, GL_VERTEX_SHADER);
+    u32 fs_id = compile_shader(fs_shader, GL_FRAGMENT_SHADER);
+    result.shader_id = link_program(vs_id, fs_id);
+    set_assert_uniform_1i(result.shader_id, "colorBuffer", 0);
+    
+    result.texture_width = image_width;
+    result.texture_height = image_height;
+    glGenTextures(1, &result.screen_texture);
+    glBindTexture(GL_TEXTURE_2D, result.screen_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, image_width, image_height, 0, GL_RGB, GL_FLOAT, 0);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    
+    glUseProgram(result.shader_id);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, result.screen_texture);
+    glBindVertexArray(result.screen_quad_vao);
+    
+    return result;
+}
+
+internal void
+update_preview(preview_context *preview, f32 *pixels)
+{
+    s32 fence_status_count;
+    if(preview->fence_status == GL_SIGNALED)
+    {
+        //glInvalidateTexImage(frame_texture, 0); // Orphaning may not be neccessary
+        glTextureSubImage2D(preview->screen_texture, 0, 0, 0, preview->texture_width, preview->texture_height, GL_RGB, GL_FLOAT, pixels);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        preview->fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+        glfwSwapBuffers(preview->window);
+    }
+    
+    glGetSynciv(preview->fence, GL_SYNC_STATUS, 1, &fence_status_count, &preview->fence_status);
 }

@@ -7,7 +7,7 @@
 #include "include/GLFW/glfw3.h"
 
 #include "ray.cpp"
-#include "opengl.cpp"
+#include "preview.cpp"
 
 // Forman Action (books):
 // Numerical Methods That Work; Real Computing Made Real
@@ -37,58 +37,15 @@ linear_to_srgb(f32 linear)
     return srgb;
 }
 
+global_variable b32 render_progress_to_window;
+
 int main()
 {
-    if(glfwInit())
-    {
-        printf("\nGLFW: ");
-        printf(glfwGetVersionString());
-        printf("\n");
-    }
-    else
-    {
-        // TODO: Logging
-        printf("ERROR: GLFW failed to initialize\n");
-    }
+    render_progress_to_window = true;
     
     s32 image_width = 1280;
     s32 image_height = 720;
-    
-    GLFWwindow *glfw_window = glfwCreateWindow(image_width, image_height, "raytracer", 0, 0);
-    glfwMakeContextCurrent(glfw_window);
-    
-    GLenum glew_error = glewInit();
-    if(glew_error == GLEW_OK)
-    {
-        printf("Vendor: "); printf((char *)glGetString(GL_VENDOR)); printf("\n");
-        printf("Renderer: "); printf((char *)glGetString(GL_RENDERER)); printf("\n");
-        printf("OpenGL Version: "); printf((char *)glGetString(GL_VERSION)); printf("\n");
-        
-        glDisable(GL_DEPTH_TEST);
-        //glEnable(GL_MULTISAMPLE);
-        glEnable(GL_FRAMEBUFFER_SRGB);
-    }
-    else
-    {
-        printf("ERROR: Glew failed to initialize");
-    }
-    
-    u32 screen_quad_vao = create_quad();
-    u32 vs_id = load_compile_shader("blit_screen_vertex.c", GL_VERTEX_SHADER);
-    u32 fs_id = load_compile_shader("blit_screen_frag.c", GL_FRAGMENT_SHADER);
-    u32 shader_id = link_program(vs_id, fs_id);
-    set_assert_uniform_1i(shader_id, "colorBuffer", 0);
-    
     pixel_buffer buffer = allocate_pixel_buffer(image_width, image_height);
-    u32 frame_texture;
-    glGenTextures(1, &frame_texture);
-    glBindTexture(GL_TEXTURE_2D, frame_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, buffer.width, buffer.height, 0, GL_RGB, GL_FLOAT, 0);
-    glGenerateMipmap(GL_TEXTURE_2D);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     
     material materials[7] = {};
     materials[0].emit_color = V3(0.3f, 0.4f, 0.5f);
@@ -185,43 +142,49 @@ int main()
     // NOTE: fencing, probably not neccessary
     locked_add_u64(&queue.next_work_order_index, 0);
     
-    glUseProgram(shader_id);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, frame_texture);
-    glBindVertexArray(screen_quad_vao);
-    
-    b32 threads_created = 0;
     LARGE_INTEGER timer_start;
     LARGE_INTEGER frequency;
-    QueryPerformanceFrequency(&frequency);
-    QueryPerformanceCounter(&timer_start);
     
-    while(queue.tiles_retired < total_tile_count)
+    if(render_progress_to_window)
     {
-        if(!threads_created)
+        preview_context preview = setup_preview_window(image_width, image_height);
+        QueryPerformanceFrequency(&frequency);
+        QueryPerformanceCounter(&timer_start);
+        for(u32 core_index = 1; core_index < core_count; ++core_index)
         {
-            for(u32 core_index = 1; core_index < core_count; ++core_index)
-            {
-                create_worker_thread(&queue);
-            }
+            create_worker_thread(&queue);
+        }
+        
+        while(queue.tiles_retired < total_tile_count)
+        {
             
-            threads_created = 1;
+            printf("\rrendering... %.0f%%", ((f32)queue.tiles_retired / (f32)queue.work_order_count) * 100);
+            fflush(stdout);
+            update_preview(&preview, buffer.data);
         }
         
         printf("\rrendering... %.0f%%", ((f32)queue.tiles_retired / (f32)queue.work_order_count) * 100);
         fflush(stdout);
-        
-        glTextureSubImage2D(frame_texture, 0, 0, 0, image_width, image_height, GL_RGB, GL_FLOAT, buffer.data);
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-        glfwSwapBuffers(glfw_window);
+        update_preview(&preview, buffer.data);
     }
-    
-    // TODO: 
-    printf("\rrendering... %.0f%%", ((f32)queue.tiles_retired / (f32)queue.work_order_count) * 100);
-    fflush(stdout);
-    glTextureSubImage2D(frame_texture, 0, 0, 0, image_width, image_height, GL_RGB, GL_FLOAT, buffer.data);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    glfwSwapBuffers(glfw_window);
+    else
+    {
+        QueryPerformanceFrequency(&frequency);
+        QueryPerformanceCounter(&timer_start);
+        for(u32 core_index = 1; core_index < core_count; ++core_index)
+        {
+            create_worker_thread(&queue);
+        }
+        
+        while(queue.tiles_retired < total_tile_count)
+        {
+            printf("\rrendering... %.0f%%", ((f32)queue.tiles_retired / (f32)queue.work_order_count) * 100);
+            fflush(stdout);
+        }
+        
+        printf("\rrendering... %.0f%%", ((f32)queue.tiles_retired / (f32)queue.work_order_count) * 100);
+        fflush(stdout);
+    }
     
     printf("\n");
     
