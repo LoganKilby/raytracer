@@ -41,9 +41,9 @@ int main()
 {
     if(glfwInit())
     {
-        printf("GLFW Initialized\n");
+        printf("\nGLFW: ");
         printf(glfwGetVersionString());
-        printf("\n\n");
+        printf("\n");
     }
     else
     {
@@ -60,10 +60,9 @@ int main()
     GLenum glew_error = glewInit();
     if(glew_error == GLEW_OK)
     {
-        printf("INFO: OpenGL Initialized.\n");
         printf("Vendor: "); printf((char *)glGetString(GL_VENDOR)); printf("\n");
         printf("Renderer: "); printf((char *)glGetString(GL_RENDERER)); printf("\n");
-        printf("OpenGL Version: "); printf((char *)glGetString(GL_VERSION)); printf("\n\n");
+        printf("OpenGL Version: "); printf((char *)glGetString(GL_VERSION)); printf("\n");
         
         glDisable(GL_DEPTH_TEST);
         //glEnable(GL_MULTISAMPLE);
@@ -74,11 +73,11 @@ int main()
         printf("ERROR: Glew failed to initialize");
     }
     
-    u32 screen_quad_vao = CreateScreenRenderQuad();
-    u32 vs_id = LoadAndCompileShader("blit_screen_vertex.c", GL_VERTEX_SHADER);
-    u32 fs_id = LoadAndCompileShader("blit_screen_frag.c", GL_FRAGMENT_SHADER);
-    u32 shader_id = CreateShaderProgram(vs_id, fs_id);
-    SetUniform1i(shader_id, "colorBuffer", 0);
+    u32 screen_quad_vao = create_quad();
+    u32 vs_id = load_compile_shader("blit_screen_vertex.c", GL_VERTEX_SHADER);
+    u32 fs_id = load_compile_shader("blit_screen_frag.c", GL_FRAGMENT_SHADER);
+    u32 shader_id = link_program(vs_id, fs_id);
+    set_assert_uniform_1i(shader_id, "colorBuffer", 0);
     
     pixel_buffer buffer = allocate_pixel_buffer(image_width, image_height);
     u32 frame_texture;
@@ -142,7 +141,7 @@ int main()
     printf("processing: %d cores and %d %dx%d (%dk/tile) tiles\n", core_count, total_tile_count, tile_width, tile_height, tile_width * tile_height * 4 * 4 / 1024);
     
     work_queue queue = {};
-    queue.rays_per_pixel = 16;
+    queue.rays_per_pixel = 64;
     queue.max_bounce_count = 8;
     queue.work_orders = (work_order *)malloc(sizeof(work_order) * total_tile_count);
     printf("resolution: %d by %d pixels. %d rays per pixel. %d maximum bounces per pixel\n", buffer.width, buffer.height, queue.rays_per_pixel, queue.max_bounce_count);
@@ -213,13 +212,16 @@ int main()
         fflush(stdout);
         
         glTextureSubImage2D(frame_texture, 0, 0, 0, image_width, image_height, GL_RGB, GL_FLOAT, buffer.data);
-        //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         glfwSwapBuffers(glfw_window);
     }
     
+    // TODO: 
     printf("\rrendering... %.0f%%", ((f32)queue.tiles_retired / (f32)queue.work_order_count) * 100);
     fflush(stdout);
+    glTextureSubImage2D(frame_texture, 0, 0, 0, image_width, image_height, GL_RGB, GL_FLOAT, buffer.data);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glfwSwapBuffers(glfw_window);
     
     printf("\n");
     
@@ -235,13 +237,6 @@ int main()
     
     f32 gamma = 2.2f;
     write_ppm(buffer.data, buffer.width, buffer.height, gamma, "test.ppm");
-    glTextureSubImage2D(frame_texture, 0, 0, 0, image_width, image_height, GL_RGB, GL_FLOAT, buffer.data);
-    while(true)
-    {
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-        glfwSwapBuffers(glfw_window);
-    }
     
     return 0;
 }
@@ -252,7 +247,7 @@ set_pixel(pixel_buffer *buffer, u32 col, u32 row, v3 color)
     if((col >= buffer->width || col < 0) || ((row >= buffer->height || row < 0)))
         return;
     
-    v3 *pixel = (v3 *)&buffer->data[buffer->width * buffer->height * 3] - (row * buffer->width) - (buffer->width - col);
+    v3 *pixel = (v3 *)(buffer->data + row * buffer->width * 3 + col * 3);
     *pixel = color;
 }
 
@@ -282,15 +277,15 @@ allocate_pixel_buffer(u32 width, u32 height)
 }
 
 internal void
-write_ppm(f32 *pixel_data, int width, int height, f32 gamma, char *filename)
+write_ppm(f32 *pixel_data, int width, int height, f32 gamma, char *file_name)
 {
     Assert(gamma);
     
-    FILE *file_handle = fopen(filename, "w");
+    FILE *file_handle = fopen(file_name, "w");
     
     if(!file_handle)
     {
-        printf("unable to write to file %s\n", filename);
+        printf("unable to write to file %s\n", file_name);
         return;
     }
     
@@ -320,5 +315,8 @@ write_ppm(f32 *pixel_data, int width, int height, f32 gamma, char *filename)
     }
     
     fclose(file_handle);
-    printf("%s\n", filename);
+    
+    char dir[256] = {};
+    GetCurrentDirectory(sizeof(dir), dir);
+    printf("out: %s\\%s\n", dir, file_name);
 }

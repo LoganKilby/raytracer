@@ -1,173 +1,130 @@
-#include "opengl.h"
-
 #define AssertUniformLoc(Integer) if(Integer == -1) {*(int *)0 = 0;}
 
-// NOTE: Example of calculating tangent and bitanent vectors
-internal void 
-RenderQuad()
-{
-    static unsigned int quadVAO, quadVBO = 0;
-    if (quadVAO == 0)
-    {
-        // Quad without tangent/bitangent
-        float quadVertices[] =
-        {
-            -1.0f, 1.0f, 0.0f,  0.0f, 1.0f, // 1
-            -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,// 2
-            1.0f, -1.0f, 0.0f,  1.0f, 0.0f, // 3
-            
-            -1.0f, 1.0f, 0.0f,  0.0f, 1.0f, // 1
-            1.0f, -1.0f, 0.0f,  1.0f, 0.0f, // 3
-            1.0f, 1.0f, 0.0f,   1.0f, 1.0f   // 4
-        };
-        
-        
-        glGenVertexArrays(1, &quadVAO);
-        glGenBuffers(1, &quadVBO);
-        glBindVertexArray(quadVAO);
-        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-        
-    }
-    
-    glBindVertexArray(quadVAO);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    glBindVertexArray(0);
-}
-
-// TODO: Probably want to take an array of compiled shaders
-// TODO: Probably don't need a program struct
 internal u32
-CreateShaderProgram(GLuint VertexShaderID, GLuint FragmentShaderID)
+link_program(GLuint vs_id, GLuint fs_id)
 {
-    u32 Result = glCreateProgram();
+    u32 result = glCreateProgram();
     
-    glAttachShader(Result, VertexShaderID);
-    glAttachShader(Result, FragmentShaderID);
-    glLinkProgram(Result);
+    glAttachShader(result, vs_id);
+    glAttachShader(result, fs_id);
+    glLinkProgram(result);
     
-    int LinkStatus;
-    glGetProgramiv(Result, GL_LINK_STATUS, &LinkStatus);
-    if(LinkStatus == GL_FALSE)
+    int link_status;
+    glGetProgramiv(result, GL_LINK_STATUS, &link_status);
+    if(link_status == GL_FALSE)
     {
-        fprintf(stderr, "ERROR: Shader link error (Program ID: %d)\n", Result);
-        int LogLength;
-        glGetProgramiv(Result, GL_INFO_LOG_LENGTH, &LogLength);
-        if(LogLength)
+        fprintf(stderr, "ERROR: Shader link error (Program ID: %d)\n", result);
+        int msg_length;
+        glGetProgramiv(result, GL_INFO_LOG_LENGTH, &msg_length);
+        if(msg_length)
         {
-            char *LogBuffer = (char *)malloc(LogLength);
-            memset(LogBuffer, 0, LogLength);
-            glGetProgramInfoLog(Result, LogLength, NULL, LogBuffer);
-            fprintf(stderr, "%s\n\n", LogBuffer);
-            free(LogBuffer);
+            char *msg_buffer = (char *)malloc(msg_length);
+            memset(msg_buffer, 0, msg_length);
+            glGetProgramInfoLog(result, msg_length, NULL, msg_buffer);
+            fprintf(stderr, "%s\n\n", msg_buffer);
+            free(msg_buffer);
         }
     }
     
     // NOTE: glDeleteShader sets a flag for deletion. A shader won't be deleted while attached to a program.
+    glDeleteShader(vs_id); 
+    glDeleteShader(fs_id);
     
-    glDeleteShader(VertexShaderID); 
-    glDeleteShader(FragmentShaderID);
-    
-    return Result;
+    return result;
 }
 
 static char *
-ReadEntireFileToString(char *Filename)
+os_read_entire_file(char *file_name)
 {
-    HANDLE FileHandle = CreateFileA(Filename,
-                                    GENERIC_READ,
-                                    0,
-                                    0,
-                                    OPEN_EXISTING,
-                                    FILE_ATTRIBUTE_NORMAL, // TODO: Read only?
-                                    0);
+    // TODO: I should really just use fread
     
-    if(FileHandle == INVALID_HANDLE_VALUE)
+    HANDLE file_handle = CreateFileA(file_name,
+                                     GENERIC_READ,
+                                     0,
+                                     0,
+                                     OPEN_EXISTING,
+                                     FILE_ATTRIBUTE_NORMAL, // TODO: Read only?
+                                     0);
+    
+    if(file_handle == INVALID_HANDLE_VALUE)
     {
-        // TODO: Logging
-        fprintf(stderr, "WARNING: Windows could not open the file %s.\n", Filename);
+        fprintf(stderr, "WARNING: Windows could not open the file %s.\n", file_name);
         return 0;
     }
     
-    unsigned int FileSizeInBytes = GetFileSize(FileHandle, 0);
-    char *FileBuffer = 0;
-    if(FileSizeInBytes)
+    u32 file_size = GetFileSize(file_handle, 0);
+    char *file_buffer = 0;
+    if(file_size)
     {
-        FileBuffer = (char *)malloc(FileSizeInBytes + 1);
-        memset(FileBuffer, 0, FileSizeInBytes + 1);
+        file_buffer = (char *)malloc(file_size + 1);
+        memset(file_buffer, 0, file_size + 1);
         
-        unsigned long int BytesRead;
-        bool FileRead = ReadFile(FileHandle, FileBuffer, FileSizeInBytes, &BytesRead, 0);
-        if(!FileRead)
+        unsigned long bytes_read = 0;
+        ;if(!ReadFile(file_handle, file_buffer, file_size, &bytes_read, 0))
         {
-            // TODO: Logging
-            fprintf(stderr, "WARNING: Windows encountered an error while reading from \"%s\". File read aborted.", Filename);
-            free(FileBuffer);
-            FileBuffer = 0;
+            fprintf(stderr, "WARNING: Windows encountered an error while reading from \"%s\". File read aborted.", file_name);
+            free(file_buffer);
+            file_buffer = 0;
         }
     }
     
-    CloseHandle(FileHandle);
+    CloseHandle(file_handle);
     
-    return FileBuffer;
+    return file_buffer;
 }
 
 internal u32
-LoadAndCompileShader(char *Filename, GLenum ShaderType)
+load_compile_shader(char *file_name, GLenum shader_type)
 {
-    u32 ResultID = 0;
-    char *ShaderTypeString;
-    switch(ShaderType)
+    u32 result = 0;
+    char *shader_type_string;
+    switch(shader_type)
     {
         case GL_VERTEX_SHADER:
-        ShaderTypeString = "GL_VERTEX_SHADER";
+        shader_type_string = "GL_VERTEX_SHADER";
         break;
         case GL_FRAGMENT_SHADER:
-        ShaderTypeString = "GL_FRAGMENT_SHADER";
+        shader_type_string= "GL_FRAGMENT_SHADER";
         break;
         default:
         {
-            ShaderTypeString = "UNKNOWN_SHADER_TYPE";
+            shader_type_string = "UNKNOWN_SHADER_TYPE";
         }
     }
     
-    char *ShaderSource = ReadEntireFileToString(Filename);
+    char *shader_source = os_read_entire_file(file_name);
     
-    if(ShaderSource)
+    if(shader_source)
     {
-        ResultID = glCreateShader(ShaderType);
-        glShaderSource(ResultID, 1, &ShaderSource, NULL);
-        glCompileShader(ResultID);
+        result = glCreateShader(shader_type);
+        glShaderSource(result, 1, &shader_source, NULL);
+        glCompileShader(result);
         
-        int CompilationStatus;
-        glGetShaderiv(ResultID, GL_COMPILE_STATUS, &CompilationStatus);
-        if(CompilationStatus == GL_FALSE)
+        int compilation_status;
+        glGetShaderiv(result, GL_COMPILE_STATUS, &compilation_status);
+        if(compilation_status == GL_FALSE)
         {
-            int LogLength;
-            glGetShaderiv(ResultID, GL_INFO_LOG_LENGTH, &LogLength);
-            char *LogBuffer = (char *)malloc(LogLength);
-            memset(LogBuffer, 0, LogLength);
-            glGetShaderInfoLog(ResultID, LogLength, NULL, LogBuffer);
+            int log_length;
+            glGetShaderiv(result, GL_INFO_LOG_LENGTH, &log_length);
+            char *msg_buffer = (char *)malloc(log_length);
+            memset(msg_buffer, 0, log_length);
+            glGetShaderInfoLog(result, log_length, NULL, msg_buffer);
             
-            fprintf(stderr, "\nERROR: Shader compilation error (%s): %s\n", ShaderTypeString, Filename);
-            fprintf(stderr, "%s", LogBuffer);
-            fprintf(stderr, "\n%s\n\n", ShaderSource);
+            fprintf(stderr, "\nERROR: Shader compilation error (%s): %s\n", shader_type_string, file_name);
+            fprintf(stderr, "%s", msg_buffer);
+            fprintf(stderr, "\n%s\n\n", shader_source);
             
-            free(LogBuffer);
+            free(msg_buffer);
         }
         
-        free(ShaderSource);
+        free(shader_source);
     }
     
-    return ResultID;
+    return result;
 }
 
 internal void
-SetUniform1i(int Program, char *Name, int Data)
+set_assert_uniform_1i(int Program, char *Name, int Data)
 {
     glUseProgram(Program);
     GLint UniformLocation = glGetUniformLocation(Program, Name);
@@ -175,35 +132,28 @@ SetUniform1i(int Program, char *Name, int Data)
     glUniform1i(UniformLocation, Data);
 }
 
-internal unsigned int
-CreateScreenRenderQuad()
+internal u32
+create_quad()
 {
-    float ScreenRenderQuad[] = {
-#if 0
+    f32 quad[] = {
         // positions        // texture Coords
         -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
         -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
         1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
         1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
-#endif
-        // positions        // texture Coords
-        -1.0f,  1.0f, 0.0f, 1.0f, 0.0f,
-        -1.0f, -1.0f, 0.0f, 1.0f, 1.0f,
-        1.0f,  1.0f, 0.0f, 0.0f, 0.0f,
-        1.0f, -1.0f, 0.0f, 0.0f, 1.0f,
     };
     
-    unsigned int VAO, VBO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(ScreenRenderQuad), &ScreenRenderQuad, GL_STATIC_DRAW);
+    u32 vao, vbo;
+    glGenVertexArrays(1, &vao);
+    glGenBuffers(1, &vbo);
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quad), &quad, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
     glBindVertexArray(0);
     
-    return VAO;
+    return vao;
 }
