@@ -244,7 +244,7 @@ render_tile(work_queue *queue)
             state.film_x = -1.0f + 2.0f * ((f32)col / (f32)buffer->width);
             
             cast_sample_rays(&state);
-            set_pixel(buffer, col, row, V4(state.final_color, 1.0));
+            set_pixel(buffer, col, row, state.final_color);
             bounces_computed += state.bounces_computed;
         }
     }

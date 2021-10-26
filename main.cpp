@@ -53,7 +53,8 @@ int main()
     
     s32 image_width = 1280;
     s32 image_height = 720;
-    GLFWwindow *glfw_window = glfwCreateWindow(image_width, image_height, "raytracer", NULL, NULL);
+    
+    GLFWwindow *glfw_window = glfwCreateWindow(image_width, image_height, "raytracer", 0, 0);
     glfwMakeContextCurrent(glfw_window);
     
     GLenum glew_error = glewInit();
@@ -64,15 +65,16 @@ int main()
         printf("Renderer: "); printf((char *)glGetString(GL_RENDERER)); printf("\n");
         printf("OpenGL Version: "); printf((char *)glGetString(GL_VERSION)); printf("\n\n");
         
-        glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
-        glEnable(GL_DEPTH_TEST);
-        glEnable(GL_MULTISAMPLE);
+        glDisable(GL_DEPTH_TEST);
+        //glEnable(GL_MULTISAMPLE);
+        glEnable(GL_FRAMEBUFFER_SRGB);
     }
     else
     {
         printf("ERROR: Glew failed to initialize");
     }
     
+    u32 screen_quad_vao = CreateScreenRenderQuad();
     u32 vs_id = LoadAndCompileShader("blit_screen_vertex.c", GL_VERTEX_SHADER);
     u32 fs_id = LoadAndCompileShader("blit_screen_frag.c", GL_FRAGMENT_SHADER);
     u32 shader_id = CreateShaderProgram(vs_id, fs_id);
@@ -82,8 +84,12 @@ int main()
     u32 frame_texture;
     glGenTextures(1, &frame_texture);
     glBindTexture(GL_TEXTURE_2D, frame_texture);
-    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, image_width, image_height);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, buffer.width, buffer.height, 0, GL_RGB, GL_FLOAT, 0);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     
     material materials[7] = {};
     materials[0].emit_color = V3(0.3f, 0.4f, 0.5f);
@@ -177,13 +183,15 @@ int main()
     
     Assert(queue.work_order_count == total_tile_count);
     
+    // NOTE: fencing, probably not neccessary
     locked_add_u64(&queue.next_work_order_index, 0);
     
-    b32 threads_created = 0;
     glUseProgram(shader_id);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, frame_texture);
+    glBindVertexArray(screen_quad_vao);
     
+    b32 threads_created = 0;
     LARGE_INTEGER timer_start;
     LARGE_INTEGER frequency;
     QueryPerformanceFrequency(&frequency);
@@ -201,15 +209,19 @@ int main()
             threads_created = 1;
         }
         
-#if 1
-        glTexSubImage2D(frame_texture, 0, 0, 0, image_width, image_height, GL_RGBA, GL_FLOAT, buffer.data);
-        RenderQuad();
-        glfwSwapBuffers(glfw_window);
-#endif
-        
         printf("\rrendering... %.0f%%", ((f32)queue.tiles_retired / (f32)queue.work_order_count) * 100);
         fflush(stdout);
+        
+        glTextureSubImage2D(frame_texture, 0, 0, 0, image_width, image_height, GL_RGB, GL_FLOAT, buffer.data);
+        //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        glfwSwapBuffers(glfw_window);
     }
+    
+    printf("\rrendering... %.0f%%", ((f32)queue.tiles_retired / (f32)queue.work_order_count) * 100);
+    fflush(stdout);
+    
+    printf("\n");
     
     LARGE_INTEGER timer_end;
     QueryPerformanceCounter(&timer_end);
@@ -223,18 +235,24 @@ int main()
     
     f32 gamma = 2.2f;
     write_ppm(buffer.data, buffer.width, buffer.height, gamma, "test.ppm");
+    glTextureSubImage2D(frame_texture, 0, 0, 0, image_width, image_height, GL_RGB, GL_FLOAT, buffer.data);
+    while(true)
+    {
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        glfwSwapBuffers(glfw_window);
+    }
+    
     return 0;
 }
 
 internal void
-set_pixel(pixel_buffer *buffer, u32 col, u32 row, v4 color)
+set_pixel(pixel_buffer *buffer, u32 col, u32 row, v3 color)
 {
     if((col >= buffer->width || col < 0) || ((row >= buffer->height || row < 0)))
         return;
     
-    color = V4(1.0f, 0.0f, 1.0f, 1.0f);
-    
-    v4 *pixel = (v4 *)&buffer->data[buffer->width * buffer->height * 4] - (row * buffer->width) - (buffer->width - col);
+    v3 *pixel = (v3 *)&buffer->data[buffer->width * buffer->height * 3] - (row * buffer->width) - (buffer->width - col);
     *pixel = color;
 }
 
@@ -254,8 +272,8 @@ internal pixel_buffer
 allocate_pixel_buffer(u32 width, u32 height)
 {
     pixel_buffer result;
-    result.pitch = width * 4;
-    int buffer_size = sizeof(f32) * width * height * 4;
+    result.pitch = width * 3;
+    int buffer_size = sizeof(f32) * width * height * 3;
     result.data = (f32 *)malloc(buffer_size);
     memset(result.data, 0, buffer_size);
     result.width = width;
@@ -279,7 +297,7 @@ write_ppm(f32 *pixel_data, int width, int height, f32 gamma, char *filename)
     // ppm header
     fprintf(file_handle, "P3\n%u %u\n255\n", width, height);
     
-    int pitch = width * 4;
+    int pitch = width * 3;
     u8 r, g, b;
     v3 *pixel;
     
@@ -288,7 +306,7 @@ write_ppm(f32 *pixel_data, int width, int height, f32 gamma, char *filename)
         row < pixel_data + height * pitch; 
         row += pitch)
     {
-        for(f32 *col = row; col < row + pitch; col += 4)
+        for(f32 *col = row; col < row + pitch; col += 3)
         {
             pixel = (v3 *)col;
             r = (u8)(linear_to_srgb(pixel->r) * 255);
