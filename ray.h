@@ -17,9 +17,9 @@ struct ray
 
 struct material
 {
-    v3 emit_color;
-    v3 reflect_color;
     f32 scatter; // 0 is pure diffuse, 1 is pure specular
+    v3 reflect_color;
+    v3 emit_color;
 };
 
 struct sphere
@@ -95,7 +95,8 @@ struct ray_cast_state
     f32 half_pixel_width; 
     f32 half_pixel_height;
     v3 camera_x_axis; 
-    v3 camera_y_axis; 
+    v3 camera_y_axis;
+    v3 camera_z_axis;
     v3 camera_position;
     
     // out

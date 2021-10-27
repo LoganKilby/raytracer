@@ -14,7 +14,6 @@ struct pixel_buffer
 
 internal void write_ppm(f32 *data, int width, int height, f32 gamma, char *fname);
 internal pixel_buffer allocate_pixel_buffer(u32 width, u32 height);
-internal void clear(pixel_buffer buffer, v4 c);
 internal void set_pixel(pixel_buffer *buffer, u32 x, u32 y, v3 color);
 
 #endif //MAIN_H

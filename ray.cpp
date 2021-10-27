@@ -59,28 +59,31 @@ cast_sample_rays(ray_cast_state *state)
 {
     // in
     world *world = state->world; 
-    lane_u32 rays_per_pixel = state->rays_per_pixel; 
-    lane_u32 max_bounce_count = state->max_bounce_count;
+    u32 rays_per_pixel = state->rays_per_pixel; 
+    u32 max_bounce_count = state->max_bounce_count;
     random_series *series = state->series; 
-    lane_v3 film_center = state->film_center;
-    lane_f32 half_film_width = state->half_film_width; 
-    lane_f32 half_film_height = state->half_film_height;
-    lane_f32 half_pixel_width = state->half_pixel_width; 
-    lane_f32 half_pixel_height = state->half_pixel_height;
-    lane_f32 film_x = state->film_x + half_pixel_width; 
+    lane_v3 film_center = lane_v3_from_v3(state->film_center);
+    lane_f32 half_film_width = lane_f32_from_f32(state->half_film_width); 
+    lane_f32 half_film_height = lane_f32_from_f32(state->half_film_height);
+    lane_f32 half_pixel_width = lane_f32_from_f32(state->half_pixel_width); 
+    lane_f32 half_pixel_height = lane_f32_from_f32(state->half_pixel_height);
+    lane_f32 film_x = state->film_x + half_pixel_width;
     lane_f32 film_y = state->film_y + half_pixel_height; 
-    lane_v3 camera_x_axis = state->camera_x_axis; 
-    lane_v3 camera_y_axis = state->camera_y_axis; 
-    lane_v3 camera_position = state->camera_position;
+    lane_v3 camera_x_axis = lane_v3_from_v3(state->camera_x_axis); 
+    lane_v3 camera_y_axis = lane_v3_from_v3(state->camera_y_axis);
+    lane_v3 camera_position = lane_v3_from_v3(state->camera_position);
     
     u32 lane_width = LANE_WIDTH;
     u32 lane_ray_count = rays_per_pixel / lane_width;
-    f32 color_contribution = 1.0f / (f32)rays_per_pixel;
+    Assert((lane_ray_count *  lane_width) == rays_per_pixel);
+    
+    f32 color_contribution = 1.0f / rays_per_pixel;
+    
+    lane_f32 min_hit_distance = lane_f32_from_f32(EPSILON);
     
     // TODO: Could potentially wrap the u32
-    lane_u32 bounces_computed = 0;
+    lane_u32 bounces_computed = lane_u32_from_u32(0);
     lane_v3 final_color = {};
-    
     for(u32 ray_index = 0; ray_index < lane_ray_count; ++ray_index)
     {
         lane_f32 offset_x = film_x + random_bilateral(series) * half_pixel_width;
@@ -94,41 +97,41 @@ cast_sample_rays(ray_cast_state *state)
         lane_v3 sample = {};
         lane_v3 attenuation = V3(1, 1, 1);
         
-        lane_u32 lane_mask = 0xFFFFFFFF;
+        lane_u32 lane_mask = lane_u32_from_u32(0xFFFFFFFF);
         for(u32 bounce_count = 0; bounce_count < max_bounce_count; ++bounce_count)
         {
             lane_v3 hit_normal = {};
-            lane_f32 hit_distance = FLT_MAX;
-            lane_u32 hit_mat_index = 0;
+            lane_f32 hit_distance = lane_f32_from_f32(FLT_MAX);
+            lane_u32 hit_mat_index = lane_u32_from_u32(0);
             
-            lane_u32 lane_increment = 1;
+            lane_u32 lane_increment = lane_u32_from_u32(1);
             bounces_computed += (lane_increment & lane_mask);
             
             for(u32 plane_index = 0; plane_index < world->plane_count; ++plane_index)
             {
                 plane plane = world->planes[plane_index];
-                lane_v3 plane_normal = plane.normal;
-                lane_f32 plane_d = plane.d;
-                lane_u32 plane_mat_index = plane.material_index;
+                lane_v3 plane_normal = lane_v3_from_v3(plane.normal);
+                lane_f32 plane_d = lane_f32_from_f32(plane.d);
+                lane_u32 plane_mat_index = lane_u32_from_u32(plane.material_index);
                 
-                lane_f32 denom = inner(plane.normal, ray_direction);
+                lane_f32 denom = inner(plane_normal, ray_direction);
                 lane_f32 t = (-plane_d - inner(plane_normal, ray_origin)) / denom;
                 
-                lane_u32 denom_mask = (denom < -EPSILON) || (denom > EPSILON);
-                lane_u32 t_mask = (t > EPSILON) && (t < hit_distance);
+                lane_u32 denom_mask = (denom < -min_hit_distance) | (denom > min_hit_distance);
+                lane_u32 t_mask = (t > min_hit_distance) & (t < hit_distance);
                 lane_u32 hit_mask = denom_mask & t_mask;
                 
                 conditional_assign(&hit_distance, hit_mask, t);
                 conditional_assign(&hit_mat_index, hit_mask, plane_mat_index);
-                conditional_assign(&hit_normal, hit_mask, plane.normal);
+                conditional_assign(&hit_normal, hit_mask, plane_normal);
             }
             
             for(u32 sphere_index = 0; sphere_index < world->sphere_count; ++sphere_index)
             {
                 sphere sphere = world->spheres[sphere_index];
-                lane_v3 sphere_origin = sphere.origin;
-                lane_f32 sphere_radius = sphere.radius;
-                lane_u32 sphere_material_index = sphere.material_index;
+                lane_v3 sphere_origin = lane_v3_from_v3(sphere.origin);
+                lane_f32 sphere_radius = lane_f32_from_f32(sphere.radius);
+                lane_u32 sphere_material_index = lane_u32_from_u32(sphere.material_index);
                 lane_v3 sphere_relative_ray_origin = ray_origin - sphere_origin;
                 lane_f32 a = inner(ray_direction, ray_direction);
                 lane_f32 b =  2.0f * inner(ray_direction, sphere_relative_ray_origin);
@@ -136,15 +139,15 @@ cast_sample_rays(ray_cast_state *state)
                 lane_f32 denom = 2.0f * a;
                 lane_f32 descriminant = square_root(b * b - 4.0f * a * c);
                 
-                f32 tp = (-b + descriminant) / denom;
-                f32 tn = (-b - descriminant) / denom;
+                lane_f32 tp = (-b + descriminant) / denom;
+                lane_f32 tn = (-b - descriminant) / denom;
                 lane_u32 descriminant_mask = (descriminant > EPSILON);
                 
                 lane_f32 t = tp;
-                lane_u32 pick_mask = ((tn > EPSILON) && (tn < tp));
+                lane_u32 pick_mask = ((tn > min_hit_distance) & (tn < tp));
                 conditional_assign(&t, pick_mask, tn);
                 
-                lane_u32 t_mask = ((t > EPSILON) && (t < hit_distance));
+                lane_u32 t_mask = ((t > EPSILON) & (t < hit_distance));
                 lane_u32 hit_mask = descriminant_mask & t_mask;
                 conditional_assign(&hit_distance, hit_mask, t);
                 conditional_assign(&hit_mat_index, hit_mask, sphere_material_index);
@@ -152,25 +155,25 @@ cast_sample_rays(ray_cast_state *state)
             }
             
             // TODO: n-way load
-            material mat = world->materials[hit_mat_index];
+            //material mat = world->materials[hit_mat_index];
             
-            lane_v3 mat_emit_color = mat.emit_color;
-            lane_v3 mat_reflect_color = mat.reflect_color;
-            lane_f32 mat_scatter = mat.scatter;
+            lane_v3 mat_emit_color = lane_mask & gather_v3(world->materials, hit_mat_index, emit_color);
+            lane_v3 mat_reflect_color = gather_v3(world->materials, hit_mat_index, reflect_color);
+            lane_f32 mat_scatter = gather_f32(world->materials, hit_mat_index, scatter);
             
             sample += hadamard(attenuation, mat_emit_color);
             
-            lane_mask &= (hit_mat_index != 0);
+            lane_mask &= (hit_mat_index != lane_u32_from_u32(0));
             
-            lane_f32 cos_attenuation = lane_max(inner(-ray_direction, hit_normal), 0.0f);
+            lane_f32 cos_attenuation = fmax(inner(-ray_direction, hit_normal), lane_f32_from_f32(0.0f));
             attenuation = hadamard(attenuation,  cos_attenuation * mat_reflect_color);
             
             ray_origin += hit_distance * ray_direction;
             
             lane_v3 pure_bounce = normalize(ray_direction - 2.0f * inner(hit_normal, ray_direction) * hit_normal);
-            lane_v3 random_bounce = normalize(hit_normal + V3(random_bilateral(series), 
-                                                              random_bilateral(series), 
-                                                              random_bilateral(series)));
+            lane_v3 random_bounce = noz(hit_normal + LaneV3(random_bilateral(series), 
+                                                            random_bilateral(series), 
+                                                            random_bilateral(series)));
             ray_direction = normalize(lerp(random_bounce, mat_scatter, pure_bounce));
             
             if(mask_is_zeroed(lane_mask))
@@ -200,10 +203,11 @@ render_tile(work_queue *queue)
     f32 film_width = 1.0;
     f32 film_height = 1.0;
     
-    v3 camera_position = V3(0, -10, 1);
-    v3 camera_z_axis = normalize(camera_position);
-    v3 camera_x_axis = normalize(outer(V3(0, 0, 1), camera_z_axis));
-    v3 camera_y_axis = normalize(outer(camera_z_axis, camera_x_axis));
+    lane_v3 camera_position = V3(0, -10, 1);
+    lane_v3 camera_z_axis = noz(camera_position);
+    lane_v3 camera_x_axis = noz(cross(V3(0, 0, 1), camera_z_axis));
+    lane_v3 camera_y_axis = noz(cross(camera_z_axis, camera_x_axis));
+    lane_v3 film_center = camera_position - film_distance * camera_z_axis;
     
     work_order *order = queue->work_orders + work_order_index;
     u32 x_min = order->min_x;
@@ -226,12 +230,13 @@ render_tile(work_queue *queue)
     state.max_bounce_count = queue->max_bounce_count;
     state.world = order->world;
     state.series = &order->entropy;
-    state.camera_x_axis = camera_x_axis;
-    state.camera_y_axis = camera_y_axis;
-    state.camera_position = camera_position;
+    state.camera_x_axis = extract_lane_0(camera_x_axis);
+    state.camera_y_axis = extract_lane_0(camera_y_axis);
+    state.camera_z_axis = extract_lane_0(camera_z_axis);
+    state.camera_position = extract_lane_0(camera_position);
     state.half_film_width = 0.5f * film_width;
     state.half_film_height = 0.5f * film_height;
-    state.film_center = camera_position - film_distance * camera_z_axis;
+    state.film_center = extract_lane_0(film_center);
     state.half_pixel_width = 0.5f / buffer->width;
     state.half_pixel_height = 0.5f / buffer->height;
     
@@ -251,11 +256,6 @@ render_tile(work_queue *queue)
     
     locked_add_u64(&queue->tiles_retired, 1);
     locked_add_u64(&queue->bounces_computed, bounces_computed);
-    
-#if 0
-    printf("\rrendering... %.0f%%", ((f32)queue->tiles_retired / (f32)queue->work_order_count) * 100);
-    fflush(stdout);
-#endif
     
     return true;
 }

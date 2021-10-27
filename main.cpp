@@ -48,36 +48,36 @@ int main()
     pixel_buffer buffer = allocate_pixel_buffer(image_width, image_height);
     
     material materials[7] = {};
-    materials[0].emit_color = V3(0.3f, 0.4f, 0.5f);
-    materials[1].reflect_color = V3(0.5f, 0.5f, 0.5f);
-    materials[2].reflect_color = V3(0.7f, 0.5f, 0.3f);
-    materials[3].emit_color = V3(5.0f, 0.0f, 0.0f);
-    materials[4].reflect_color = V3(0.2f, 0.8f, 0.2f);
+    materials[0].emit_color = {0.3f, 0.4f, 0.5f};
+    materials[1].reflect_color = {0.5f, 0.5f, 0.5f};
+    materials[2].reflect_color = {0.7f, 0.5f, 0.3f};
+    materials[3].emit_color = {5.0f, 0.0f, 0.0f};
+    materials[4].reflect_color = {0.2f, 0.8f, 0.2f};
     materials[4].scatter = 0.75f;
-    materials[5].reflect_color = V3(0.4f, 0.8f, 0.9f);
+    materials[5].reflect_color = {0.4f, 0.8f, 0.9f};
     materials[5].scatter = 0.85f;
-    materials[6].reflect_color = V3(0.95f, 0.95f, 0.95f);
+    materials[6].reflect_color = {0.95f, 0.95f, 0.95f};
     materials[6].scatter = 1.0f;
     
     plane planes[1] = {};
     planes[0].d = 0;
-    planes[0].normal = V3(0, 0, 1);
+    planes[0].normal = {0, 0, 1};
     planes[0].material_index = 1;
     
     sphere spheres[5] = {};
-    spheres[0].origin = V3(0, 0, 0);
+    spheres[0].origin = {0, 0, 0};
     spheres[0].radius = 1;
     spheres[0].material_index = 2;
-    spheres[1].origin = V3(3, -2, 0);
+    spheres[1].origin = {3, -2, 0};
     spheres[1].radius = 1;
     spheres[1].material_index = 3;
-    spheres[2].origin = V3(-2, -1, 2);
+    spheres[2].origin = {-2, -1, 2};
     spheres[2].radius = 1.0;
     spheres[2].material_index = 4;
-    spheres[3].origin = V3(1, -1, 3);
+    spheres[3].origin = {1, -1, 3};
     spheres[3].radius = 1.0;
     spheres[3].material_index = 5;
-    spheres[4].origin = V3(2.5, 3, 0);
+    spheres[4].origin = {2.5, 3, 0};
     spheres[4].radius = 2.0;
     spheres[4].material_index = 6;
     
@@ -95,7 +95,7 @@ int main()
     u32 tile_count_x = (buffer.width + tile_width - 1) / tile_width;
     u32 tile_count_y = (buffer.height + tile_height - 1) / tile_height;
     u32 total_tile_count = tile_count_x * tile_count_y;
-    printf("processing: %d cores and %d %dx%d (%dk/tile) tiles\n", core_count, total_tile_count, tile_width, tile_height, tile_width * tile_height * 4 * 4 / 1024);
+    printf("processing: %d cores and %d %dx%d (%dk/tile) tiles, %d-wide lanes\n", core_count, total_tile_count, tile_width, tile_height, tile_width * tile_height * 4 * 4 / 1024, LANE_WIDTH);
     
     work_queue queue = {};
     queue.rays_per_pixel = 64;
@@ -132,7 +132,14 @@ int main()
             order->max_y = max_y;
             
             // TODO: repleace with real entropy
-            random_series entropy = { 234098 + tile_x * 1235 + tile_y * 23088};
+            random_series entropy = 
+            {
+                lane_u32_from_u32((2334598 + tile_x * 5535 + tile_y * 64568),
+                                  (7444598 + tile_x * 5675 + tile_y * 32488),
+                                  (4097254 + tile_x * 1235 + tile_y * 62314),
+                                  (234098 + tile_x * 9905 + tile_y * 73688))
+            };
+            
             order->entropy = entropy;
         }
     }
@@ -215,11 +222,11 @@ set_pixel(pixel_buffer *buffer, u32 col, u32 row, v3 color)
 }
 
 internal void
-clear(pixel_buffer buffer, v4 c)
+clear(pixel_buffer buffer, v3 c)
 {
     int pixel_count = buffer.width * buffer.height;
-    for(v4 *pixel = (v4 *)&buffer.data[0]; 
-        pixel < (v4 *)&buffer.data[0] + pixel_count; 
+    for(v3 *pixel = (v3 *)&buffer.data[0]; 
+        pixel < (v3 *)&buffer.data[0] + pixel_count; 
         ++pixel)
     {
         *pixel = c;
