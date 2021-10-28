@@ -25,7 +25,17 @@ struct v3
     };
 };
 
-#if (LANE_WIDTH==8)
+#if (LANE_WIDTH==16)
+#if COMPILER_MSVC
+#include <intrin.h>
+#elif COMPILER_LLVM
+#include <x86intrin.h>
+#else
+#error SSE/NEON optimizations are not available for this compiler
+#endif
+#include "lane_16x.h"
+
+#elif (LANE_WIDTH==8)
 #if COMPILER_MSVC
 #include <intrin.h>
 #elif COMPILER_LLVM

@@ -208,7 +208,10 @@ operator/(lane_f32 a, lane_f32 b)
 }
 
 internal lane_u32
-lane_u32_from_u32(u32 r0, u32 r1, u32 r2, u32 r3, u32, u32, u32, u32)
+lane_u32_from_u32(u32 r0, u32 r1, u32 r2, u32 r3, 
+                  u32, u32, u32, u32,
+                  u32, u32, u32, u32,
+                  u32, u32, u32, u32)
 {
     lane_u32 result;
     
