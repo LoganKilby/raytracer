@@ -15,3 +15,4 @@ build/.vs/raytracer/v16/Browse.VC.opendb
 build/.vs/raytracer/v16/ipch/AutoPCH/5315364b8ddd8145/MAIN.ipch
 build/.vs/raytracer/v16/ipch/AutoPCH/ec1e76229c505e9/MAIN.ipch
 build/.vs/raytracer/v16/.suo
+*.ipch
