@@ -15,11 +15,18 @@ struct ray
     v3 direction;
 };
 
+struct brdf_table
+{
+    u32 count[3];
+    v3 *values;
+};
+
 struct material
 {
     f32 specular; // 0 is pure diffuse, 1 is pure specular
     v3 reflect_color;
     v3 emit_color;
+    brdf_table brdf;
 };
 
 struct sphere
