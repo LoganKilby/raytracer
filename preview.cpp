@@ -135,12 +135,12 @@ load_compile_shader(char *file_name, GLenum shader_type)
 }
 
 internal void
-set_assert_uniform_1i(int Program, char *Name, int Data)
+set_assert_uniform_1i(int program_id, char *uniform_name, int uniform_data)
 {
-    glUseProgram(Program);
-    GLint UniformLocation = glGetUniformLocation(Program, Name);
-    AssertUniformLoc(UniformLocation);
-    glUniform1i(UniformLocation, Data);
+    glUseProgram(program_id);
+    GLint uniform_location = glGetUniformLocation(program_id, uniform_name);
+    AssertUniformLoc(uniform_location);
+    glUniform1i(uniform_location, uniform_data);
 }
 
 internal u32
@@ -179,7 +179,7 @@ setup_preview_window(u32 image_width, u32 image_height)
         printf("ERROR: GLFW failed to initialize\n");
     }
     
-    result.window = glfwCreateWindow(image_width, image_height, "raytracer", 0, 0);
+    result.window = glfwCreateWindow(image_width, image_height, "Render Preview", 0, 0);
     glfwMakeContextCurrent(result.window);
     
     GLenum glew_error = glewInit();
@@ -223,7 +223,6 @@ setup_preview_window(u32 image_width, u32 image_height)
 internal void
 update_preview(preview_context *preview, f32 *pixels)
 {
-    s32 fence_status_count;
     if(preview->fence_status == GL_SIGNALED)
     {
         //glInvalidateTexImage(frame_texture, 0); // Orphaning may not be neccessary
@@ -233,5 +232,5 @@ update_preview(preview_context *preview, f32 *pixels)
         glfwSwapBuffers(preview->window);
     }
     
-    glGetSynciv(preview->fence, GL_SYNC_STATUS, 1, &fence_status_count, &preview->fence_status);
+    glGetSynciv(preview->fence, GL_SYNC_STATUS, 1, 0, &preview->fence_status);
 }
