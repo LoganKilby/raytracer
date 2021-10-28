@@ -329,7 +329,7 @@ LaneV3(lane_f32 X, lane_f32 Y, lane_f32 Z)
 inline lane_v3
 lerp(lane_v3 a, lane_f32 t, lane_v3 b)
 {
-    lane_v3 result = (1.0f - t)*a + t*b;
+    lane_v3 result = (1.0f - t) * a + t * b;
     
     return(result);
 }

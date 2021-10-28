@@ -3,7 +3,7 @@
 #ifndef RAY_LANE_H
 #define RAY_LANE_H
 
-#define LANE_WIDTH 1
+#define LANE_WIDTH 8
 
 #if !defined(LANE_WIDTH)
 #define LANE_WIDTH 1
@@ -56,6 +56,9 @@ internal lane_v3
 operator&(lane_u32 a, lane_v3 b)
 {
     lane_v3 result;
+    
+    // TODO: make this a specific function
+    a = a ? 0xFFFFFFFF : 0;
     
     u32 x = a & *(u32*)&b.x;
     u32 y = a & *(u32*)&b.y;
@@ -374,7 +377,7 @@ clamp01(lane_f32 value)
     return result;
 }
 
-#endif
+#endif // LANE_WIDTH != 1
 
 #define gather_v3(base_ptr, index, member) \
 gather_v3_(&(base_ptr)->member, sizeof(*(base_ptr)), index)

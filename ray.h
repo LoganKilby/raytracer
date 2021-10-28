@@ -17,7 +17,7 @@ struct ray
 
 struct material
 {
-    f32 scatter; // 0 is pure diffuse, 1 is pure specular
+    f32 specular; // 0 is pure diffuse, 1 is pure specular
     v3 reflect_color;
     v3 emit_color;
 };
@@ -75,6 +75,7 @@ struct work_queue
     u32 work_order_count;
     work_order *work_orders;
     
+    volatile u64 loops_computed;
     volatile u64 bounces_computed;
     volatile u64 next_work_order_index;
     volatile u64 tiles_retired;
@@ -102,6 +103,7 @@ struct ray_cast_state
     // out
     v3 final_color;
     u64 bounces_computed;
+    u64 loops_computed;
 };
 
 struct render_state

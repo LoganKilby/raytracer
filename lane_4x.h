@@ -208,7 +208,7 @@ operator/(lane_f32 a, lane_f32 b)
 }
 
 internal lane_u32
-lane_u32_from_u32(u32 r0, u32 r1, u32 r2, u32 r3)
+lane_u32_from_u32(u32 r0, u32 r1, u32 r2, u32 r3, u32, u32, u32, u32)
 {
     lane_u32 result;
     
@@ -322,7 +322,7 @@ internal u64
 horizontal_add(lane_u32 a)
 {
     u32 *v = (u32 *)&a.v;
-    u64 result = (u32)v[0] + (u64)v[1] + (u64)v[2] + (u64)v[3];
+    u64 result = (u64)v[0] + (u64)v[1] + (u64)v[2] + (u64)v[3];
     
     return result;
 }

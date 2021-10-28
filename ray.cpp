@@ -42,7 +42,8 @@ xor_shift_32(random_series *series)
 internal lane_f32
 random_unilateral(random_series *series)
 {
-    lane_f32 result = lane_f32_from_u32(xor_shift_32(series)) / (f32)U32_MAX;
+    // NOTE: Shifting off the sign bit. There's no SSE instruction to convert to unsigned int
+    lane_f32 result = lane_f32_from_u32(xor_shift_32(series) >> 1) / (f32)(U32_MAX >> 1);
     return result;
 }
 
@@ -83,6 +84,7 @@ cast_sample_rays(ray_cast_state *state)
     
     // TODO: Could potentially wrap the u32
     lane_u32 bounces_computed = lane_u32_from_u32(0);
+    u64 loops_computed = 0;
     lane_v3 final_color = {};
     for(u32 ray_index = 0; ray_index < lane_ray_count; ++ray_index)
     {
@@ -106,24 +108,32 @@ cast_sample_rays(ray_cast_state *state)
             
             lane_u32 lane_increment = lane_u32_from_u32(1);
             bounces_computed += (lane_increment & lane_mask);
+            loops_computed += LANE_WIDTH;
             
             for(u32 plane_index = 0; plane_index < world->plane_count; ++plane_index)
             {
                 plane plane = world->planes[plane_index];
                 lane_v3 plane_normal = lane_v3_from_v3(plane.normal);
                 lane_f32 plane_d = lane_f32_from_f32(plane.d);
-                lane_u32 plane_mat_index = lane_u32_from_u32(plane.material_index);
                 
                 lane_f32 denom = inner(plane_normal, ray_direction);
-                lane_f32 t = (-plane_d - inner(plane_normal, ray_origin)) / denom;
-                
                 lane_u32 denom_mask = (denom < -min_hit_distance) | (denom > min_hit_distance);
-                lane_u32 t_mask = (t > min_hit_distance) & (t < hit_distance);
-                lane_u32 hit_mask = denom_mask & t_mask;
                 
-                conditional_assign(&hit_distance, hit_mask, t);
-                conditional_assign(&hit_mat_index, hit_mask, plane_mat_index);
-                conditional_assign(&hit_normal, hit_mask, plane_normal);
+                if(!mask_is_zeroed(denom_mask))
+                {
+                    lane_f32 t = (-plane_d - inner(plane_normal, ray_origin)) / denom;
+                    lane_u32 t_mask = (t > min_hit_distance) & (t < hit_distance);
+                    lane_u32 hit_mask = denom_mask & t_mask;
+                    
+                    if(!mask_is_zeroed(hit_mask))
+                    {
+                        lane_u32 plane_mat_index = lane_u32_from_u32(plane.material_index);
+                        
+                        conditional_assign(&hit_distance, hit_mask, t);
+                        conditional_assign(&hit_mat_index, hit_mask, plane_mat_index);
+                        conditional_assign(&hit_normal, hit_mask, plane_normal);
+                    }
+                }
             }
             
             for(u32 sphere_index = 0; sphere_index < world->sphere_count; ++sphere_index)
@@ -131,7 +141,6 @@ cast_sample_rays(ray_cast_state *state)
                 sphere sphere = world->spheres[sphere_index];
                 lane_v3 sphere_origin = lane_v3_from_v3(sphere.origin);
                 lane_f32 sphere_radius = lane_f32_from_f32(sphere.radius);
-                lane_u32 sphere_material_index = lane_u32_from_u32(sphere.material_index);
                 lane_v3 sphere_relative_ray_origin = ray_origin - sphere_origin;
                 lane_f32 a = inner(ray_direction, ray_direction);
                 lane_f32 b =  2.0f * inner(ray_direction, sphere_relative_ray_origin);
@@ -139,19 +148,29 @@ cast_sample_rays(ray_cast_state *state)
                 lane_f32 denom = 2.0f * a;
                 lane_f32 descriminant = square_root(b * b - 4.0f * a * c);
                 
-                lane_f32 tp = (-b + descriminant) / denom;
-                lane_f32 tn = (-b - descriminant) / denom;
                 lane_u32 descriminant_mask = (descriminant > EPSILON);
                 
-                lane_f32 t = tp;
-                lane_u32 pick_mask = ((tn > min_hit_distance) & (tn < tp));
-                conditional_assign(&t, pick_mask, tn);
-                
-                lane_u32 t_mask = ((t > EPSILON) & (t < hit_distance));
-                lane_u32 hit_mask = descriminant_mask & t_mask;
-                conditional_assign(&hit_distance, hit_mask, t);
-                conditional_assign(&hit_mat_index, hit_mask, sphere_material_index);
-                conditional_assign(&hit_normal, hit_mask, normalize(t * ray_direction + sphere_relative_ray_origin));
+                if(!mask_is_zeroed(descriminant_mask))
+                {
+                    lane_f32 tp = (-b + descriminant) / denom;
+                    lane_f32 tn = (-b - descriminant) / denom;
+                    
+                    lane_f32 t = tp;
+                    lane_u32 pick_mask = ((tn > min_hit_distance) & (tn < tp));
+                    conditional_assign(&t, pick_mask, tn);
+                    
+                    lane_u32 t_mask = ((t > EPSILON) & (t < hit_distance));
+                    lane_u32 hit_mask = descriminant_mask & t_mask;
+                    
+                    if(!mask_is_zeroed(hit_mask))
+                    {
+                        lane_u32 sphere_material_index = lane_u32_from_u32(sphere.material_index);
+                        
+                        conditional_assign(&hit_distance, hit_mask, t);
+                        conditional_assign(&hit_mat_index, hit_mask, sphere_material_index);
+                        conditional_assign(&hit_normal, hit_mask, normalize(t * ray_direction + sphere_relative_ray_origin));
+                    }
+                }
             }
             
             // TODO: n-way load
@@ -159,26 +178,27 @@ cast_sample_rays(ray_cast_state *state)
             
             lane_v3 mat_emit_color = lane_mask & gather_v3(world->materials, hit_mat_index, emit_color);
             lane_v3 mat_reflect_color = gather_v3(world->materials, hit_mat_index, reflect_color);
-            lane_f32 mat_scatter = gather_f32(world->materials, hit_mat_index, scatter);
+            lane_f32 mat_specular = gather_f32(world->materials, hit_mat_index, specular);
             
             sample += hadamard(attenuation, mat_emit_color);
-            
             lane_mask &= (hit_mat_index != lane_u32_from_u32(0));
-            
-            lane_f32 cos_attenuation = fmax(inner(-ray_direction, hit_normal), lane_f32_from_f32(0.0f));
-            attenuation = hadamard(attenuation,  cos_attenuation * mat_reflect_color);
-            
-            ray_origin += hit_distance * ray_direction;
-            
-            lane_v3 pure_bounce = normalize(ray_direction - 2.0f * inner(hit_normal, ray_direction) * hit_normal);
-            lane_v3 random_bounce = noz(hit_normal + LaneV3(random_bilateral(series), 
-                                                            random_bilateral(series), 
-                                                            random_bilateral(series)));
-            ray_direction = normalize(lerp(random_bounce, mat_scatter, pure_bounce));
             
             if(mask_is_zeroed(lane_mask))
             {
                 break;
+            }
+            else
+            {
+                lane_f32 cos_attenuation = fmax(inner(-ray_direction, hit_normal), lane_f32_from_f32(0.0f));
+                attenuation = hadamard(attenuation,  cos_attenuation * mat_reflect_color);
+                
+                ray_origin += hit_distance * ray_direction;
+                
+                lane_v3 pure_bounce = normalize(ray_direction - 2.0f * inner(hit_normal, ray_direction) * hit_normal);
+                lane_v3 random_bounce = noz(hit_normal + LaneV3(random_bilateral(series), 
+                                                                random_bilateral(series), 
+                                                                random_bilateral(series)));
+                ray_direction = noz(lerp(random_bounce, mat_specular, pure_bounce));
             }
         }
         
@@ -186,7 +206,8 @@ cast_sample_rays(ray_cast_state *state)
     }
     
     state->final_color = horizontal_add(final_color);
-    state->bounces_computed = horizontal_add(bounces_computed);
+    state->bounces_computed += horizontal_add(bounces_computed);
+    state->loops_computed += loops_computed;
     state->series = series;
 }
 
@@ -239,8 +260,9 @@ render_tile(work_queue *queue)
     state.film_center = extract_lane_0(film_center);
     state.half_pixel_width = 0.5f / buffer->width;
     state.half_pixel_height = 0.5f / buffer->height;
+    state.bounces_computed = 0;
+    state.loops_computed = 0;
     
-    u64 bounces_computed = 0;
     for(u32 row = y_min; row < y_count; ++row)
     {
         state.film_y = -1.0f + 2.0f * ((f32)row / (f32)buffer->height);
@@ -250,12 +272,14 @@ render_tile(work_queue *queue)
             
             cast_sample_rays(&state);
             set_pixel(buffer, col, row, state.final_color);
-            bounces_computed += state.bounces_computed;
+            //bounces_computed += state.bounces_computed;
+            //loops_computed += state.loops_computed;
         }
     }
     
     locked_add_u64(&queue->tiles_retired, 1);
-    locked_add_u64(&queue->bounces_computed, bounces_computed);
+    locked_add_u64(&queue->bounces_computed, state.bounces_computed);
+    locked_add_u64(&queue->loops_computed, state.loops_computed);
     
     return true;
 }

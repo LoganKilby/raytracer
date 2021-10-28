@@ -10,7 +10,7 @@
 #include "preview.cpp"
 
 // Forman Action (books):
-// Numerical Methods That Work; Real Computing Made Real
+// Numerical Methods That Work -- Real Computing Made Real
 
 // Paper on floating point arithmetic:
 // https://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html
@@ -41,7 +41,8 @@ global_variable b32 render_progress_to_window;
 
 int main()
 {
-    render_progress_to_window = true;
+    bool show_preview = true;
+    bool multithreaded = true;
     
     s32 image_width = 1280;
     s32 image_height = 720;
@@ -49,15 +50,16 @@ int main()
     
     material materials[7] = {};
     materials[0].emit_color = {0.3f, 0.4f, 0.5f};
+    //materials[0].emit_color = {0.3f, 0.4f, 0.5f};
     materials[1].reflect_color = {0.5f, 0.5f, 0.5f};
     materials[2].reflect_color = {0.7f, 0.5f, 0.3f};
     materials[3].emit_color = {5.0f, 0.0f, 0.0f};
     materials[4].reflect_color = {0.2f, 0.8f, 0.2f};
-    materials[4].scatter = 0.75f;
+    materials[4].specular = 0.75f;
     materials[5].reflect_color = {0.4f, 0.8f, 0.9f};
-    materials[5].scatter = 0.85f;
+    materials[5].specular = 0.85f;
     materials[6].reflect_color = {0.95f, 0.95f, 0.95f};
-    materials[6].scatter = 1.0f;
+    materials[6].specular = 1.0f;
     
     plane planes[1] = {};
     planes[0].d = 0;
@@ -89,7 +91,7 @@ int main()
     world.sphere_count = array_count(spheres);
     world.spheres = spheres;
     
-    u32 core_count = get_core_count();
+    u32 core_count = multithreaded ? get_core_count() : 1;
     u32 tile_width = buffer.width / core_count;
     u32 tile_height = tile_width;
     u32 tile_count_x = (buffer.width + tile_width - 1) / tile_width;
@@ -98,7 +100,7 @@ int main()
     printf("processing: %d cores and %d %dx%d (%dk/tile) tiles, %d-wide lanes\n", core_count, total_tile_count, tile_width, tile_height, tile_width * tile_height * 4 * 4 / 1024, LANE_WIDTH);
     
     work_queue queue = {};
-    queue.rays_per_pixel = 64;
+    queue.rays_per_pixel = 256;
     queue.max_bounce_count = 8;
     queue.work_orders = (work_order *)malloc(sizeof(work_order) * total_tile_count);
     printf("resolution: %d by %d pixels. %d rays per pixel. %d maximum bounces per pixel\n", buffer.width, buffer.height, queue.rays_per_pixel, queue.max_bounce_count);
@@ -125,7 +127,7 @@ int main()
             Assert(queue.work_order_count <= total_tile_count);
             
             order->world = &world;
-            order->buffer = &buffer;
+            order->buffer = &buffer; 
             order->min_x = min_x;
             order->min_y = min_y;
             order->max_x = max_x;
@@ -137,7 +139,11 @@ int main()
                 lane_u32_from_u32((2334598 + tile_x * 5535 + tile_y * 64568),
                                   (7444598 + tile_x * 5675 + tile_y * 32488),
                                   (4097254 + tile_x * 1235 + tile_y * 62314),
-                                  (234098 + tile_x * 9905 + tile_y * 73688))
+                                  (234098 + tile_x * 9905 + tile_y * 73688),
+                                  (987876 + tile_x * 5765456 + tile_y * 790234),
+                                  (678900 + tile_x * 980986 + tile_y * 234232),
+                                  (304230 + tile_x * 7095648 + tile_y * 3057790),
+                                  (866345 + tile_x * 73498 + tile_y * 234345))
             };
             
             order->entropy = entropy;
@@ -152,7 +158,7 @@ int main()
     LARGE_INTEGER timer_start;
     LARGE_INTEGER frequency;
     
-    if(render_progress_to_window)
+    if(show_preview)
     {
         preview_context preview = setup_preview_window(image_width, image_height);
         QueryPerformanceFrequency(&frequency);
@@ -170,8 +176,6 @@ int main()
             update_preview(&preview, buffer.data);
         }
         
-        printf("\rrendering... %.0f%%", ((f32)queue.tiles_retired / (f32)queue.work_order_count) * 100);
-        fflush(stdout);
         update_preview(&preview, buffer.data);
     }
     else
@@ -183,16 +187,15 @@ int main()
             create_worker_thread(&queue);
         }
         
-        while(queue.tiles_retired < total_tile_count)
+        while(render_tile(&queue) || queue.tiles_retired < total_tile_count)
         {
             printf("\rrendering... %.0f%%", ((f32)queue.tiles_retired / (f32)queue.work_order_count) * 100);
             fflush(stdout);
         }
-        
-        printf("\rrendering... %.0f%%", ((f32)queue.tiles_retired / (f32)queue.work_order_count) * 100);
-        fflush(stdout);
     }
     
+    printf("\rrendering... %.0f%%", ((f32)queue.tiles_retired / (f32)queue.work_order_count) * 100);
+    fflush(stdout);
     printf("\n");
     
     LARGE_INTEGER timer_end;
@@ -202,8 +205,14 @@ int main()
     timer_end.QuadPart /= frequency.QuadPart;
     f64 ms_elapsed = (f64)timer_end.QuadPart / (f64)1000;
     f64 ms_per_bounce = ms_elapsed / queue.bounces_computed;
+    u64 total_bounces = queue.loops_computed;
+    u64 used_bounces = queue.bounces_computed;
+    u64 wasted_bounces = total_bounces - used_bounces;
     printf("runtime: %.3Lf ms\n", ms_elapsed);
     printf("per-ray performance: %Lf ms\n", ms_per_bounce);
+    printf("total bounces: %llu\n", total_bounces);
+    printf("used bounces: %llu\n", used_bounces);
+    printf("wasted bounces: %llu (%.02f%%)\n", wasted_bounces, 100.0f * (f32)wasted_bounces / (f32)total_bounces);
     
     f32 gamma = 2.2f;
     write_ppm(buffer.data, buffer.width, buffer.height, gamma, "test.ppm");
