@@ -265,8 +265,6 @@ square_root(lane_f32 a)
 {
     lane_f32 result;
     
-    // TODO(casey): We may want to allow rsqrts as well, need to see if we
-    // care about the performance!
     result.v = _mm_sqrt_ps(a.v);
     
     return(result);

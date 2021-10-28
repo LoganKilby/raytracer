@@ -3,7 +3,7 @@
 #ifndef LANE_16X_H
 #define LANE_16X_H
 
-// TODO: See if the blend operation is really the most sensible thing to do for avx512 comparison operations
+// TODO: Check if the blend operation is really the most sensible thing to do for converting __mmask16 to _mm512
 
 struct lane_f32
 {
@@ -274,8 +274,6 @@ square_root(lane_f32 a)
 {
     lane_f32 result;
     
-    // TODO(casey): We may want to allow rsqrts as well, need to see if we
-    // care about the performance!
     result.v = _mm512_sqrt_ps(a.v);
     
     return(result);
