@@ -174,15 +174,8 @@ setup_preview_window(u32 image_width, u32 image_height)
 {
     preview_context result = {};
     
-    if(glfwInit())
+    if(!glfwInit())
     {
-        printf("\nGLFW: ");
-        printf(glfwGetVersionString());
-        printf("\n");
-    }
-    else
-    {
-        // TODO: Logging
         printf("ERROR: GLFW failed to initialize\n");
     }
     
@@ -190,19 +183,13 @@ setup_preview_window(u32 image_width, u32 image_height)
     glfwMakeContextCurrent(result.window);
     
     GLenum glew_error = glewInit();
-    if(glew_error == GLEW_OK)
-    {
-        printf("Vendor: "); printf((char *)glGetString(GL_VENDOR)); printf("\n");
-        printf("Renderer: "); printf((char *)glGetString(GL_RENDERER)); printf("\n");
-        printf("OpenGL Version: "); printf((char *)glGetString(GL_VERSION)); printf("\n");
-        
-        glDisable(GL_DEPTH_TEST);
-        glEnable(GL_FRAMEBUFFER_SRGB);
-    }
-    else
+    if(glew_error != GLEW_OK)
     {
         printf("ERROR: Glew failed to initialize");
     }
+    
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_FRAMEBUFFER_SRGB);
     
     char *vs_shader = "#version 330 core\n layout (location = 0) in vec3 aPos; layout (location = 1) in vec2 aTexCoords; out vec2 TexCoords; void main() { TexCoords = aTexCoords; gl_Position = vec4(aPos, 1.0); }";
     char *fs_shader = "#version 330 core\n out vec4 FragColor; in vec2 TexCoords; uniform sampler2D colorBuffer; void main() { FragColor = vec4(texture(colorBuffer, TexCoords).rgb, 1.0); }";

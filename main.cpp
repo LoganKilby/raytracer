@@ -39,7 +39,7 @@ linear_to_srgb(f32 linear)
 
 global_variable b32 render_progress_to_window;
 
-int main()
+int main(int argc, char **argv)
 {
     bool show_preview = true;
     bool multithreaded = true;
@@ -50,7 +50,6 @@ int main()
     
     material materials[7] = {};
     materials[0].emit_color = {0.3f, 0.4f, 0.5f};
-    //materials[0].emit_color = {0.3f, 0.4f, 0.5f};
     materials[1].reflect_color = {0.5f, 0.5f, 0.5f};
     materials[2].reflect_color = {0.7f, 0.5f, 0.3f};
     materials[3].emit_color = {5.0f, 0.0f, 0.0f};
@@ -101,6 +100,12 @@ int main()
     
     work_queue queue = {};
     queue.rays_per_pixel = 256;
+    
+    if(argc == 2)
+    {
+        queue.rays_per_pixel = atoi(argv[1]);
+    }
+    
     queue.max_bounce_count = 8;
     queue.work_orders = (work_order *)malloc(sizeof(work_order) * total_tile_count);
     printf("resolution: %d by %d pixels. %d rays per pixel. %d maximum bounces per pixel\n", buffer.width, buffer.height, queue.rays_per_pixel, queue.max_bounce_count);
@@ -141,9 +146,17 @@ int main()
                                   (4097254 + tile_x * 1235 + tile_y * 62314),
                                   (234098 + tile_x * 9905 + tile_y * 73688),
                                   (987876 + tile_x * 5765456 + tile_y * 790234),
-                                  (678900 + tile_x * 980986 + tile_y * 234232),
+                                  (678900 + tile_x * 980986 + tile_y * 34232),
                                   (304230 + tile_x * 7095648 + tile_y * 3057790),
-                                  (866345 + tile_x * 73498 + tile_y * 234345))
+                                  (866345 + tile_x * 73498 + tile_y * 734345),
+                                  (239823 + tile_x * 490872 + tile_y * 350972),
+                                  (3509898 + tile_x * 756253 + tile_y * 565656),
+                                  (5020983 + tile_x * 4239487 + tile_y * 635235),
+                                  (6623423 + tile_x * 4918274 + tile_y * 655373),
+                                  (8292847 + tile_x * 58213 + tile_y * 40987),
+                                  (202348 + tile_x * 5485550 + tile_y * 030332),
+                                  (3485992 + tile_x * 3423488 + tile_y * 800902),
+                                  (849320 + tile_x * 572048 + tile_y * 5023937)),
             };
             
             order->entropy = entropy;
