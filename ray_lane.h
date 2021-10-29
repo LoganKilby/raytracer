@@ -440,6 +440,8 @@ extract_lane_0(lane_v3 a)
     return result;
 }
 
+#define extract_f32(a, i) ((f32 *)&a)[i]
+
 internal v3
 horizontal_add(lane_v3 a)
 {

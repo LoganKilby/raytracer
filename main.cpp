@@ -15,6 +15,8 @@
 // Paper on floating point arithmetic:
 // https://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html
 
+// TODO: Write own acos, atan2 functions
+
 internal f32
 linear_to_srgb(f32 linear)
 {
@@ -49,12 +51,11 @@ int main(int argc, char **argv)
     pixel_buffer buffer = allocate_pixel_buffer(image_width, image_height);
     
     material materials[7] = {};
-    materials[0].emit_color = {0.3f, 0.4f, 0.5f};
-    materials[1].reflect_color = {0.5f, 0.5f, 0.5f};
+    materials[0].emit_color = {0.3f, 0.4f, 0.5f}; // sky
+    materials[1].reflect_color = {0.5f, 0.5f, 0.5f}; // ground
     materials[2].reflect_color = {0.7f, 0.5f, 0.3f};
     materials[3].emit_color = {5.0f, 0.0f, 0.0f};
     materials[4].reflect_color = {0.2f, 0.8f, 0.2f};
-    materials[4].specular = 0.75f;
     materials[5].reflect_color = {0.4f, 0.8f, 0.9f};
     materials[5].specular = 0.85f;
     materials[6].reflect_color = {0.95f, 0.95f, 0.95f};
@@ -311,38 +312,4 @@ write_ppm(f32 *pixel_data, int width, int height, f32 gamma, char *file_name)
     char dir[256] = {};
     GetCurrentDirectory(sizeof(dir), dir);
     printf("out: %s\\%s\n", dir, file_name);
-}
-
-internal void
-load_merl_binary(brdf_table *dest, char *file_name)
-{
-    FILE *file = fopen(file_name, "rb");
-    
-    if(file)
-    {
-        fread(dest->count, sizeof(dest->count), 1, file);
-        u32 total_count = dest->count[0]* dest->count[1]* dest->count[2];
-        u32 total_read_size = total_count * sizeof(f64) * 3;
-        u32 total_table_size = total_count * sizeof(v3);
-        
-        f64 *temp = (f64 *)malloc(total_read_size);
-        dest->values = (v3 *)malloc(total_table_size);
-        fread(temp, total_read_size, 1, file);
-        
-        for(u32 data_index = 0; data_index < total_count; ++data_index)
-        {
-            dest->values[data_index] = { 
-                (f32)temp[3 * data_index + 0],
-                (f32)temp[3 * data_index + 1],
-                (f32)temp[3 * data_index + 2],
-            };
-        }
-        
-        fclose(file);
-        free(temp);
-    }
-    else
-    {
-        printf("WARNING: unable to open merl file %s\n", file_name);
-    }
 }

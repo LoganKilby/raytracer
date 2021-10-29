@@ -38,7 +38,7 @@ struct sphere
 
 struct plane
 {
-    v3 normal;
+    v3 normal, tangent, binormal;
     f32 d;
     int material_index;
 };

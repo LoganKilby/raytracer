@@ -9,6 +9,7 @@
 #include <float.h>
 
 #define PI (float)M_PI
+#define PI32 3.14159265359f
 #define TWO_PI 2*M_PI
 #define EPSILON 10e-6
 

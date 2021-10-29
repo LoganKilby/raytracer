@@ -54,7 +54,111 @@ random_bilateral(random_series *series)
     return result;
 }
 
-// 1:37:32
+
+global_variable v3 null_brdf_value = { 0, 0, 0 };
+
+internal void
+null_brdf(brdf_table *table)
+{
+    table->count[0] = table->count[1] = table->count[2] = 1;
+    table->values = &null_brdf_value;
+}
+
+internal void
+load_merl_binary(brdf_table *dest, char *file_name)
+{
+    FILE *file = fopen(file_name, "rb");
+    
+    if(file)
+    {
+        fread(dest->count, sizeof(dest->count), 1, file);
+        u32 total_count = dest->count[0]* dest->count[1]* dest->count[2];
+        u32 total_read_size = total_count * sizeof(f64) * 3;
+        u32 total_table_size = total_count * sizeof(v3);
+        
+        f64 *temp = (f64 *)malloc(total_read_size);
+        dest->values = (v3 *)malloc(total_table_size);
+        fread(temp, total_read_size, 1, file);
+        
+        for(u32 data_index = 0; data_index < total_count; ++data_index)
+        {
+            dest->values[data_index] = { 
+                (f32)temp[data_index + 0],
+                (f32)temp[total_count + data_index],
+                (f32)temp[2 * total_count + data_index],
+            };
+        }
+        
+        fclose(file);
+        free(temp);
+    }
+    else
+    {
+        printf("WARNING: unable to open merl file %s\n", file_name);
+    }
+}
+
+internal lane_v3
+brdf_lookup(material *materials, lane_u32 mat_index, lane_v3 view_dir, lane_v3 normal, lane_v3 tangent, lane_v3 binormal, lane_v3 light_dir)
+{
+    // calculate a half vector?
+    lane_v3 half_vector = noz((view_dir + light_dir) * 0.5f);
+    
+    lane_v3 light_dir_wide;
+    light_dir_wide.x = inner(light_dir, tangent);
+    light_dir_wide.y = inner(light_dir, binormal);
+    light_dir_wide.z = inner(light_dir, normal);
+    
+    lane_v3 half_vector_wide;
+    half_vector_wide.x = inner(half_vector, tangent);
+    half_vector_wide.y = inner(half_vector, binormal);
+    half_vector_wide.z = inner(half_vector, normal);
+    
+    lane_v3 diff_y = noz(cross(half_vector_wide, tangent));
+    lane_v3 diff_x = noz(cross(diff_y, half_vector_wide));
+    
+    lane_f32 diff_x_inner = inner(diff_x, light_dir_wide);
+    lane_f32 diff_y_inner = inner(diff_y, light_dir_wide);
+    lane_f32 diff_z_inner = inner(half_vector_wide, light_dir_wide);
+    
+    lane_f32 half_diff = inner(half_vector_wide, light_dir_wide);
+    
+    lane_v3 result;
+    for(u32 sub_index = 0; sub_index < LANE_WIDTH; ++sub_index)
+    {
+        f32 theta_half = acosf(extract_f32(half_vector_wide.z, sub_index));
+        f32 theta_diff = acosf(extract_f32(diff_z_inner, sub_index));
+        f32 phi_diff = atan2f(extract_f32(diff_y_inner, sub_index), extract_f32(diff_x_inner, sub_index));
+        
+        if(phi_diff < 0)
+        {
+            phi_diff += PI32;
+        }
+        
+        brdf_table *table = &materials[((u32 *)&mat_index)[sub_index]].brdf;
+        
+        // Undoing what the acos did?
+        f32 f0 = square_root(clamp01(theta_half / (0.5f * PI32)));
+        u32 i0 = round_f32_to_u32((table->count[0] - 1) * f0);
+        
+        f32 f1 = clamp01(theta_diff / (0.5f * PI32));
+        u32 i1 = round_f32_to_u32((table->count[1] - 1) * f1);
+        
+        f32 f2 = clamp01(phi_diff / PI32);
+        u32 i2= round_f32_to_u32((table->count[2] - 1) * f2);
+        
+        u32 index = i2 + i1 * table->count[2] + i0 * table->count[1] * table->count[2];
+        Assert(index < (table->count[0] * table->count[1] * table->count[2]));
+        v3 color = table->values[index];
+        
+        ((f32 *)&result.x)[sub_index] = color.x;
+        ((f32 *)&result.y)[sub_index] = color.y;
+        ((f32 *)&result.z)[sub_index] = color.z;
+    }
+    
+    return result;
+}
+
 internal void
 cast_sample_rays(ray_cast_state *state)
 {
@@ -103,6 +207,8 @@ cast_sample_rays(ray_cast_state *state)
         for(u32 bounce_count = 0; bounce_count < max_bounce_count; ++bounce_count)
         {
             lane_v3 hit_normal = {};
+            //lane_v3 hit_tangent = {};
+            //lane_v3 hit_binormal = {};
             lane_f32 hit_distance = lane_f32_from_f32(FLT_MAX);
             lane_u32 hit_mat_index = lane_u32_from_u32(0);
             
@@ -115,6 +221,10 @@ cast_sample_rays(ray_cast_state *state)
                 plane plane = world->planes[plane_index];
                 lane_v3 plane_normal = lane_v3_from_v3(plane.normal);
                 lane_f32 plane_d = lane_f32_from_f32(plane.d);
+#if 0
+                lane_v3 plane_tangent = lane_v3_from_v3(plane.tangent);
+                lane_v3 plane_binormal = lane_v3_from_v3(plane.binormal);
+#endif
                 
                 lane_f32 denom = inner(plane_normal, ray_direction);
                 lane_u32 denom_mask = (denom < -min_hit_distance) | (denom > min_hit_distance);
@@ -132,6 +242,11 @@ cast_sample_rays(ray_cast_state *state)
                         conditional_assign(&hit_distance, hit_mask, t);
                         conditional_assign(&hit_mat_index, hit_mask, plane_mat_index);
                         conditional_assign(&hit_normal, hit_mask, plane_normal);
+                        
+#if 0
+                        conditional_assign(&hit_tangent, hit_mask, plane_tangent);
+                        conditional_assign(&hit_binormal, hit_mask, plane_binormal);
+#endif
                     }
                 }
             }
@@ -147,7 +262,6 @@ cast_sample_rays(ray_cast_state *state)
                 lane_f32 c = inner(sphere_relative_ray_origin, sphere_relative_ray_origin) - sphere_radius * sphere_radius;
                 lane_f32 denom = 2.0f * a;
                 lane_f32 descriminant = square_root(b * b - 4.0f * a * c);
-                
                 lane_u32 descriminant_mask = (descriminant > EPSILON);
                 
                 if(!mask_is_zeroed(descriminant_mask))
@@ -169,6 +283,17 @@ cast_sample_rays(ray_cast_state *state)
                         conditional_assign(&hit_distance, hit_mask, t);
                         conditional_assign(&hit_mat_index, hit_mask, sphere_material_index);
                         conditional_assign(&hit_normal, hit_mask, normalize(t * ray_direction + sphere_relative_ray_origin));
+                        
+#if 0
+                        lane_v3 sphere_tangent = cross({0, 0, 1}, hit_normal);
+                        lane_v3 sphere_binormal = cross(hit_normal, sphere_tangent);
+                        
+                        sphere_tangent = noz(sphere_tangent);
+                        sphere_binormal = noz(sphere_binormal);
+                        
+                        conditional_assign(&hit_tangent, hit_mask, sphere_tangent);
+                        conditional_assign(&hit_binormal, hit_mask, sphere_binormal);
+#endif
                     }
                 }
             }
@@ -190,7 +315,6 @@ cast_sample_rays(ray_cast_state *state)
             else
             {
                 lane_f32 cos_attenuation = fmax(inner(-ray_direction, hit_normal), lane_f32_from_f32(0.0f));
-                attenuation = hadamard(attenuation,  cos_attenuation * mat_reflect_color);
                 
                 ray_origin += hit_distance * ray_direction;
                 
@@ -198,7 +322,15 @@ cast_sample_rays(ray_cast_state *state)
                 lane_v3 random_bounce = noz(hit_normal + LaneV3(random_bilateral(series), 
                                                                 random_bilateral(series), 
                                                                 random_bilateral(series)));
-                ray_direction = noz(lerp(random_bounce, mat_specular, pure_bounce));
+                lane_v3 next_ray_direction = noz(lerp(random_bounce, mat_specular, pure_bounce));
+                
+                //lane_v3 reflectance = brdf_lookup(world->materials, hit_mat_index, -ray_direction, hit_normal, hit_tangent, hit_binormal, next_ray_direction);
+                
+                //attenuation = hadamard(attenuation, reflectance);
+                
+                attenuation = hadamard(attenuation,  cos_attenuation * mat_reflect_color);
+                
+                ray_direction = next_ray_direction;
             }
         }
         
