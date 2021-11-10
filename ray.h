@@ -29,6 +29,13 @@ struct material
     brdf_table brdf;
 };
 
+struct triangle
+{
+    v3 vert0;
+    v3 vert1;
+    v3 vert2;
+};
+
 struct sphere
 {
     v3 origin;
@@ -53,6 +60,9 @@ struct world
     
     u32 sphere_count;
     sphere *spheres;
+    
+    fastObjMesh **meshes;
+    u32 mesh_count;
     
     u64 bounces_computed;
     u32 tiles_retired;
@@ -91,18 +101,18 @@ struct work_queue
 struct ray_cast_state
 {
     // in
-    world *world; 
-    u32 rays_per_pixel; 
+    world *world;
+    u32 rays_per_pixel;
     u32 max_bounce_count;
-    random_series *series; 
-    f32 film_x; 
-    f32 film_y; 
+    random_series *series;
+    f32 film_x;
+    f32 film_y;
     v3 film_center;
-    f32 half_film_width; 
+    f32 half_film_width;
     f32 half_film_height;
-    f32 half_pixel_width; 
+    f32 half_pixel_width;
     f32 half_pixel_height;
-    v3 camera_x_axis; 
+    v3 camera_x_axis;
     v3 camera_y_axis;
     v3 camera_z_axis;
     v3 camera_position;

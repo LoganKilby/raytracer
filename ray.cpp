@@ -1,5 +1,4 @@
 #include "ray.h"
-#include "ray_lane.h"
 
 internal u64
 locked_add_u64(volatile u64 *addend, u64 value)
@@ -160,6 +159,53 @@ brdf_lookup(material *materials, lane_u32 mat_index, lane_v3 view_dir, lane_v3 n
 }
 
 internal void
+triangle_intersection(triangle *t, lane_v3 ray_origin, lane_v3 ray_direction)
+{
+    // transform triangle verts to ray cooridnate space:
+    // translate
+    lane_v3 p0t = lane_v3_from_v3(t->vert0) - ray_origin;
+    lane_v3 p1t = lane_v3_from_v3(t->vert1) - ray_origin;
+    lane_v3 p2t = lane_v3_from_v3(t->vert2) - ray_origin;
+    
+    // permute components of triangle vertices and ray direction ?
+    lane_u32 kz = max_dimensions(wabs(ray_direction));
+    lane_u32 kx = kz + lane_u32_from_u32(1);
+    conditional_assign(&kx, kx == lane_u32_from_u32(3), lane_u32_from_u32(0));
+    lane_u32 ky = kx + lane_u32_from_u32(1);
+    conditional_assign(&ky, ky == lane_u32_from_u32(3), lane_u32_from_u32(0));
+    
+    lane_v3 d = permute(ray_direction, kx, ky, kz);
+    p0t = permute(p0t, kx, ky, kz);
+    p1t = permute(p1t, kx, ky, kz);
+    p2t = permute(p2t, kx, ky, kz);
+    
+    // apply shear transformations
+    lane_f32 sz = 1.0f / d.z;
+    lane_f32 sx = -d.x * sx;
+    lane_f32 sy = -d.y * sx;
+    
+    p0t.x += sx * p0t.z;
+    p0t.y += sy * p0t.z;
+    p1t.x += sx * p1t.z;
+    p1t.y += sy * p1t.z;
+    p2t.x += sx * p2t.z;
+    p2t.y += sy * p2t.z;
+    
+    // compute edge function coefficients e0, e1, and e2
+    lane_f32 e0 = p1t.x * p2t.y - p1t.y * p2t.x;
+    lane_f32 e1 = p2t.x * p0t.y - p2t.y * p0t.x;
+    lane_f32 e2 = p0t.x * p1t.y - p0t.y * p1t.x;
+    
+    lane_f32 zero_lane = lane_f32_from_f32(0.0f);
+    lane_u32 edge_mask = (e0 == zero_lane) & (e1 == zero_lane) & (e2 == zero_lane);
+    if(!mask_is_zeroed(edge_mask))
+    {
+        // can recompute with double precision for rays that fail the edge mask
+        // and conditionally assign new edges
+    }
+}
+
+internal void
 cast_sample_rays(ray_cast_state *state)
 {
     // in
@@ -201,14 +247,12 @@ cast_sample_rays(ray_cast_state *state)
         lane_v3 ray_direction = normalize(film_position - camera_position);
         
         lane_v3 sample = {};
-        lane_v3 attenuation = V3(1, 1, 1);
+        lane_v3 attenuation = LaneV3(1, 1, 1);
         
         lane_u32 lane_mask = lane_u32_from_u32(0xFFFFFFFF);
         for(u32 bounce_count = 0; bounce_count < max_bounce_count; ++bounce_count)
         {
             lane_v3 hit_normal = {};
-            //lane_v3 hit_tangent = {};
-            //lane_v3 hit_binormal = {};
             lane_f32 hit_distance = lane_f32_from_f32(FLT_MAX);
             lane_u32 hit_mat_index = lane_u32_from_u32(0);
             
@@ -221,10 +265,6 @@ cast_sample_rays(ray_cast_state *state)
                 plane plane = world->planes[plane_index];
                 lane_v3 plane_normal = lane_v3_from_v3(plane.normal);
                 lane_f32 plane_d = lane_f32_from_f32(plane.d);
-#if 0
-                lane_v3 plane_tangent = lane_v3_from_v3(plane.tangent);
-                lane_v3 plane_binormal = lane_v3_from_v3(plane.binormal);
-#endif
                 
                 lane_f32 denom = inner(plane_normal, ray_direction);
                 lane_u32 denom_mask = (denom < -min_hit_distance) | (denom > min_hit_distance);
@@ -242,11 +282,6 @@ cast_sample_rays(ray_cast_state *state)
                         conditional_assign(&hit_distance, hit_mask, t);
                         conditional_assign(&hit_mat_index, hit_mask, plane_mat_index);
                         conditional_assign(&hit_normal, hit_mask, plane_normal);
-                        
-#if 0
-                        conditional_assign(&hit_tangent, hit_mask, plane_tangent);
-                        conditional_assign(&hit_binormal, hit_mask, plane_binormal);
-#endif
                     }
                 }
             }
@@ -283,20 +318,25 @@ cast_sample_rays(ray_cast_state *state)
                         conditional_assign(&hit_distance, hit_mask, t);
                         conditional_assign(&hit_mat_index, hit_mask, sphere_material_index);
                         conditional_assign(&hit_normal, hit_mask, normalize(t * ray_direction + sphere_relative_ray_origin));
-                        
-#if 0
-                        lane_v3 sphere_tangent = cross({0, 0, 1}, hit_normal);
-                        lane_v3 sphere_binormal = cross(hit_normal, sphere_tangent);
-                        
-                        sphere_tangent = noz(sphere_tangent);
-                        sphere_binormal = noz(sphere_binormal);
-                        
-                        conditional_assign(&hit_tangent, hit_mask, sphere_tangent);
-                        conditional_assign(&hit_binormal, hit_mask, sphere_binormal);
-#endif
                     }
                 }
             }
+            
+#if 1
+            for(u32 mesh_index = 0; mesh_index < world->mesh_count; ++mesh_index)
+            {
+                fastObjMesh *mesh = world->meshes[mesh_index];
+                for(u32 group_index = 0; group_index < mesh->group_count; ++group_index)
+                {
+                    fastObjGroup *group = &mesh->groups[group_index];
+                    Assert(mesh->face_vertices[group->face_offset] == 3);
+                    for(u32 face_index = 0; face_index < group->face_count; ++face_index)
+                    {
+                        
+                    }
+                }
+            }
+#endif
             
             // TODO: n-way load
             //material mat = world->materials[hit_mat_index];
@@ -356,9 +396,9 @@ render_tile(work_queue *queue)
     f32 film_width = 1.0;
     f32 film_height = 1.0;
     
-    lane_v3 camera_position = V3(0, -10, 1);
+    lane_v3 camera_position = LaneV3(0, -10, 1);
     lane_v3 camera_z_axis = noz(camera_position);
-    lane_v3 camera_x_axis = noz(cross(V3(0, 0, 1), camera_z_axis));
+    lane_v3 camera_x_axis = noz(cross(LaneV3(0, 0, 1), camera_z_axis));
     lane_v3 camera_y_axis = noz(cross(camera_z_axis, camera_x_axis));
     lane_v3 film_center = camera_position - film_distance * camera_z_axis;
     

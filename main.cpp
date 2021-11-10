@@ -5,7 +5,6 @@
 #include "time.h"
 #include "include/GL/glew.h"
 #include "include/GLFW/glfw3.h"
-
 #include "ray.cpp"
 #include "preview.cpp"
 
@@ -83,6 +82,11 @@ int main(int argc, char **argv)
     spheres[4].radius = 2.0;
     spheres[4].material_index = 6;
     
+    fastObjMesh *mesh_storage[] = 
+    {
+        fast_obj_read("mesh/cube.obj"),
+    };
+    
     world world = {};
     world.material_count = array_count(materials);
     world.materials = materials;
@@ -90,6 +94,8 @@ int main(int argc, char **argv)
     world.planes = planes;
     world.sphere_count = array_count(spheres);
     world.spheres = spheres;
+    world.meshes = mesh_storage;
+    world.mesh_count = array_count(mesh_storage);
     
     u32 core_count = multithreaded ? get_core_count() : 1;
     u32 tile_width = buffer.width / core_count;
