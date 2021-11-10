@@ -12,7 +12,7 @@ struct lane_f32
 
 struct lane_f64
 {
-    
+    __m128d v;
 };
 
 struct lane_v3
@@ -20,6 +20,13 @@ struct lane_v3
     lane_f32 x;
     lane_f32 y;
     lane_f32 z;
+};
+
+struct lane_dv3
+{
+    lane_f64 x;
+    lane_f64 y;
+    lane_f64 z;
 };
 
 struct lane_u32
@@ -209,12 +216,32 @@ operator-(lane_f32 a, lane_f32 b)
     return(result);
 }
 
+internal lane_f64
+operator-(lane_f64 a, lane_f64 b)
+{
+    lane_f64 result;
+    
+    result.v = _mm_sub_pd(a.v, b.v);
+    
+    return(result);
+}
+
 internal lane_f32
 operator*(lane_f32 a, lane_f32 b)
 {
     lane_f32 result;
     
     result.v = _mm_mul_ps(a.v, b.v);
+    
+    return(result);
+}
+
+internal lane_f64
+operator*(lane_f64 a, lane_f64 b)
+{
+    lane_f64 result;
+    
+    result.v = _mm_mul_pd(a.v, b.v);
     
     return(result);
 }
@@ -227,6 +254,38 @@ operator/(lane_f32 a, lane_f32 b)
     result.v = _mm_div_ps(a.v, b.v);
     
     return(result);
+}
+
+internal lane_f64
+cast_lane_f64(lane_f32 a)
+{
+    lane_f64 result;
+    
+    result.v = _mm_castps_pd(a.v);
+    
+    return result;
+}
+
+internal lane_f32
+cast_lane_f32(lane_f64 a)
+{
+    lane_f32 result;
+    
+    result.v = _mm_castpd_ps(a.v);
+    
+    return result;
+}
+
+internal lane_dv3
+cast_lane_dv3(lane_v3 a)
+{
+    lane_dv3 result;
+    
+    result.x.v = _mm_castps_pd(a.x.v);
+    result.y.v = _mm_castps_pd(a.y.v);
+    result.z.v = _mm_castps_pd(a.z.v);
+    
+    return result;
 }
 
 internal lane_u32

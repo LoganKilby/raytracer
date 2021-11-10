@@ -158,14 +158,15 @@ brdf_lookup(material *materials, lane_u32 mat_index, lane_v3 view_dir, lane_v3 n
     return result;
 }
 
+// TODO: Test multiple triangles?
 internal void
-triangle_intersection(triangle *t, lane_v3 ray_origin, lane_v3 ray_direction)
+pbrt_triangle_intersection(triangle *tri, lane_v3 ray_origin, lane_v3 ray_direction, lane_f32 min_hit_distance, lane_f32 *hit_distance)
 {
     // transform triangle verts to ray cooridnate space:
     // translate
-    lane_v3 p0t = lane_v3_from_v3(t->vert0) - ray_origin;
-    lane_v3 p1t = lane_v3_from_v3(t->vert1) - ray_origin;
-    lane_v3 p2t = lane_v3_from_v3(t->vert2) - ray_origin;
+    lane_v3 p0t = lane_v3_from_v3(tri->vert0) - ray_origin;
+    lane_v3 p1t = lane_v3_from_v3(tri->vert1) - ray_origin;
+    lane_v3 p2t = lane_v3_from_v3(tri->vert2) - ray_origin;
     
     // permute components of triangle vertices and ray direction ?
     lane_u32 kz = max_dimensions(wabs(ray_direction));
@@ -196,13 +197,80 @@ triangle_intersection(triangle *t, lane_v3 ray_origin, lane_v3 ray_direction)
     lane_f32 e1 = p2t.x * p0t.y - p2t.y * p0t.x;
     lane_f32 e2 = p0t.x * p1t.y - p0t.y * p1t.x;
     
-    lane_f32 zero_lane = lane_f32_from_f32(0.0f);
-    lane_u32 edge_mask = (e0 == zero_lane) & (e1 == zero_lane) & (e2 == zero_lane);
+    lane_u32 edge_mask = (e0 == zero_lane_f32) & (e1 == zero_lane_f32) & (e2 == zero_lane_f32);
     if(!mask_is_zeroed(edge_mask))
     {
         // can recompute with double precision for rays that fail the edge mask
         // and conditionally assign new edges
+        lane_dv3 d_p0t = cast_lane_dv3(p0t);
+        lane_dv3 d_p1t = cast_lane_dv3(p1t);
+        lane_dv3 d_p2t = cast_lane_dv3(p2t);
+        
+        lane_f32 te0 = cast_lane_f32((d_p2t.x * d_p1t.y) - (d_p2t.y * d_p1t.x));
+        lane_f32 te1 = cast_lane_f32((d_p0t.x * d_p2t.y) - (d_p0t.y * d_p2t.x));
+        lane_f32 te2 = cast_lane_f32((d_p1t.x * d_p0t.y) - (d_p1t.y * d_p0t.x));
+        
+        conditional_assign(&e0, edge_mask, te0);
+        conditional_assign(&e1, edge_mask, te1);
+        conditional_assign(&e2, edge_mask, te2);
     }
+    
+    // triangle edge and determinant tests
+    lane_u32 triangle_edge_mask = ((e0 < 0) | (e1 < 0) | (e2 < 0)) & ((e0 > 0) | (e1 > 0) | (e2 > 0));
+    lane_f32 determinant = e0 + e1 + e2;
+    lane_u32 det_mask = (determinant == zero_lane_f32);
+    
+    if(!mask_is_zeroed(det_mask & triangle_edge_mask))
+    {
+        // compute scaled hit distance to triangle and test against ray_t range
+        p0t.z *= sz;
+        p1t.z *= sz;
+        p1t.z *= sz;
+        
+        lane_f32 t_scaled = e0 * p0t.z + e1 * p1t.z + e2 * p2t.z;
+        lane_u32 t_mask = (t_scaled <= zero_lane_f32) | (t_scaled > *hit_distance * determinant);
+        lane_u32 hit_mask = (determinant < zero_lane_f32);
+        
+        if(!mask_is_zeroed(hit_mask & t_mask))
+        {
+            // compute barycentric coordinates and t value for triangle intersection
+            lane_f32 inv_det = 1.0f / determinant;
+            lane_f32 t = t_scaled * inv_det;
+            
+            // TODO: Implement
+            
+            /*
+            lane_f32 max_zt = max_component(wabs(LaneV3(p0t.z, p1t.z, p2t.z)));
+            lane_f32 g3 = gamma(3); // TODO: make constant
+            lane_f32 delta_z = g3 * max_zt;
+            */
+            
+            // compute delta_x, delta_y terms for triangle t error bounds
+            /*
+            lane_f32 max_xt = max_component(abs(LaneV3(p0t.x, p1t.x, p2t.x)));
+            lane_f32 max_ty = max_component(abs(LaneV3(p0t.y, p1t.y, p2t.y)));
+            
+            lane_f32 g5 = gamma(5); // TODO: make constant
+            lane_f32 g2 = gamma(2); // TODO: make constant
+            lane_f32 delta_x = g5 * (max_xt + max_zt);
+            lane_f32 delta_y = g5 * (max_yt + max_zt);
+            lane_f32 delta_e = 2 * (g2 * max_xt * max_ty + delta_y * max_xt + delta_x * max_yt);
+            lane_f32 max_e = max_component(wabs(LaneV3(e0, e1, e2)));
+            lane_f32 delta_t = 3 * (g3 * max_e * max_zt + delta_e * max_zt + delta_z * max_e) * wabs(inv_det);
+            
+            lane_u32 hit_mask = (t <= delta_t);
+conditonally_assign(hit_distance, hit_mask, t);
+conditonally_assign(hit_normal, hit_mask, normal);
+conditionall_assign(hit_mat_index, hit_mask, mat_index);
+*/
+        }
+    }
+}
+
+internal void
+triangle_intersection()
+{
+    
 }
 
 internal void
@@ -322,7 +390,7 @@ cast_sample_rays(ray_cast_state *state)
                 }
             }
             
-#if 1
+            // TODO: acceleration structure
             for(u32 mesh_index = 0; mesh_index < world->mesh_count; ++mesh_index)
             {
                 fastObjMesh *mesh = world->meshes[mesh_index];
@@ -336,11 +404,8 @@ cast_sample_rays(ray_cast_state *state)
                     }
                 }
             }
-#endif
             
-            // TODO: n-way load
             //material mat = world->materials[hit_mat_index];
-            
             lane_v3 mat_emit_color = lane_mask & gather_v3(world->materials, hit_mat_index, emit_color);
             lane_v3 mat_reflect_color = gather_v3(world->materials, hit_mat_index, reflect_color);
             lane_f32 mat_specular = gather_f32(world->materials, hit_mat_index, specular);
