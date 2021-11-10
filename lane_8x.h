@@ -10,6 +10,13 @@ struct lane_f32
     lane_f32 &operator=(f32 A);
 };
 
+struct lane_v3
+{
+    lane_f32 x;
+    lane_f32 y;
+    lane_f32 z;
+};
+
 struct lane_u32
 {
     __m256i v;
@@ -62,6 +69,16 @@ operator==(lane_f32 a, lane_f32 b)
     lane_u32 result;
     
     result.v = _mm256_castps_si256(_mm256_cmp_ps(a.v, b.v, _CMP_EQ_OQ));
+    
+    return(result);
+}
+
+internal lane_u32
+operator==(lane_u32 a, lane_u32 b)
+{
+    lane_u32 result;
+    
+    result.v = _mm256_cmpeq_epi32(a.v, b.v);
     
     return(result);
 }
@@ -296,6 +313,16 @@ fmax(lane_f32 a, lane_f32 b)
     result.v = _mm256_max_ps(a.v, b.v);
     
     return(result);
+}
+
+internal lane_f32
+wabs(lane_f32 a)
+{
+    lane_f32 result;
+    lane_f32 mask = lane_f32_from_f32(-0.0f);
+    result.v = _mm256_andnot_ps(mask.v, a.v);
+    
+    return result;
 }
 
 internal lane_f32

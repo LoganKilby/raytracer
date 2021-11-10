@@ -10,6 +10,18 @@ struct lane_f32
     lane_f32 &operator=(f32 A);
 };
 
+struct lane_f64
+{
+    
+};
+
+struct lane_v3
+{
+    lane_f32 x;
+    lane_f32 y;
+    lane_f32 z;
+};
+
 struct lane_u32
 {
     __m128i v;
@@ -62,6 +74,16 @@ operator==(lane_f32 a, lane_f32 b)
     lane_u32 result;
     
     result.v = _mm_castps_si128(_mm_cmpeq_ps(a.v, b.v));
+    
+    return(result);
+}
+
+internal lane_u32
+operator==(lane_u32 a, lane_u32 b)
+{
+    lane_u32 result;
+    
+    result.v = _mm_cmpeq_epi32(a.v, b.v);
     
     return(result);
 }
@@ -220,6 +242,16 @@ lane_u32_from_u32(u32 r0, u32 r1, u32 r2, u32 r3,
     return(result);
 }
 
+internal lane_u32
+lane_u32_from_u32(u32 r0, u32 r1, u32 r2, u32 r3)
+{
+    lane_u32 result;
+    
+    result.v = _mm_setr_epi32(r0, r1, r2, r3);
+    
+    return(result);
+}
+
 internal lane_f32
 lane_f32_from_u32(lane_u32 a)
 {
@@ -299,6 +331,16 @@ fmax(lane_f32 a, lane_f32 b)
 }
 
 internal lane_f32
+wabs(lane_f32 a)
+{
+    lane_f32 result;
+    lane_f32 mask = lane_f32_from_f32(-0.0f);
+    result.v = _mm_andnot_ps(mask.v, a.v);
+    
+    return result;
+}
+
+internal lane_f32
 gather_f32_(void *base_ptr, u32 stride, lane_u32 indices)
 {
     u32 *v = (u32 *)&indices.v;
@@ -333,6 +375,53 @@ horizontal_add(lane_f32 a)
 {
     f32 *v = (f32 *)&a.v;
     f32 result = v[0] + v[1] + v[2] + v[3];
+    
+    return result;
+}
+
+// TODO: How can I do this kind of shuffle with SIMD instructions?
+// I can't find any instructions that don't require integer constants
+internal lane_v3
+permute(lane_v3 v, lane_u32 i, lane_u32 j, lane_u32 k)
+{
+    // 4 v3's
+    // 4 i's
+    // 4 j's
+    // 4 k's
+    
+    lane_v3 result;
+    
+    // r0 := { v.x[i[0]], v.y[i[0], v.z[i[0]] };
+    // r1 := { v.x[i[1]], v.y[i[1], v.z[i[1]] };
+    // r2 := { v.x[i[2]], v.y[i[2], v.z[i[2]] };
+    // r3 := { v.x[i[3]], v.y[i[3], v.z[i[3]] };
+    
+    result.x = 
+    {
+        // f32 f32 f32 f32
+        extract_f32(v.x, extract_u32(i, 0)),
+        extract_f32(v.x, extract_u32(i, 1)),
+        extract_f32(v.x, extract_u32(i, 2)),
+        extract_f32(v.x, extract_u32(i, 3)),
+    };
+    
+    result.y = 
+    {
+        // f32 f32 f32 f32
+        extract_f32(v.y, extract_u32(j, 0)),
+        extract_f32(v.y, extract_u32(j, 1)),
+        extract_f32(v.y, extract_u32(j, 2)),
+        extract_f32(v.y, extract_u32(j, 3)),
+    };
+    
+    result.z = 
+    {
+        // f32 f32 f32 f32
+        extract_f32(v.z, extract_u32(k, 0)),
+        extract_f32(v.z, extract_u32(k, 1)),
+        extract_f32(v.z, extract_u32(k, 2)),
+        extract_f32(v.z, extract_u32(k, 3)),
+    };
     
     return result;
 }

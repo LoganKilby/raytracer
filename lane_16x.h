@@ -12,6 +12,13 @@ struct lane_f32
     lane_f32 &operator=(f32 A);
 };
 
+struct lane_v3
+{
+    lane_f32 x;
+    lane_f32 y;
+    lane_f32 z;
+};
+
 struct lane_u32
 {
     __m512i v;
@@ -306,6 +313,17 @@ fmax(lane_f32 a, lane_f32 b)
     result.v = _mm512_max_ps(a.v, b.v);
     
     return(result);
+}
+
+internal lane_f32
+wabs(lane_f32 a)
+{
+    lane_f32 result;
+    lane_f32 mask = lane_f32_from_f32(-0.0f);
+    
+    result.v = _mm512_andnot_ps(mask, a.v);
+    
+    return result;
 }
 
 internal lane_f32
