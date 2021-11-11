@@ -157,13 +157,25 @@ round_f32_to_u32(f32 F)
 }
 
 inline v3
-V3(f32 x, f32 y, f32 z)
+V3(f32 a, f32 b, f32 c)
 {
     v3 result;
     
-    result.x = x;
-    result.y = y;
-    result.z = z;
+    result.x = a;
+    result.y = b;
+    result.z = c;
+    
+    return result;
+}
+
+inline v3
+V3(f32 a)
+{
+    v3 result;
+    
+    result.x = a;
+    result.y = a;
+    result.z = a;
     
     return result;
 }

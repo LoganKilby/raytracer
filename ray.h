@@ -31,9 +31,16 @@ struct material
 
 struct triangle
 {
-    v3 vert0;
-    v3 vert1;
-    v3 vert2;
+    v3 v0;
+    v3 v1;
+    v3 v2;
+    v3 normal;
+};
+
+struct triangle_buffer
+{
+    u32 count;
+    triangle *tri;
 };
 
 struct sphere
@@ -76,7 +83,8 @@ struct random_series
 struct work_order
 {
     world *world;
-    pixel_buffer *buffer;
+    pixel_buffer *screen_buffer;
+    triangle_buffer tri_buffer;
     u32 min_x;
     u32 min_y;
     u32 max_x;
@@ -102,6 +110,7 @@ struct ray_cast_state
 {
     // in
     world *world;
+    triangle_buffer tri_buffer;
     u32 rays_per_pixel;
     u32 max_bounce_count;
     random_series *series;

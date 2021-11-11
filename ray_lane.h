@@ -334,6 +334,13 @@ operator>(lane_f32 a, f32 b)
 }
 
 internal lane_u32
+operator>=(lane_f32 a, f32 b)
+{
+    lane_u32 result = (a >= lane_f32_from_f32(b));
+    return result;
+}
+
+internal lane_u32
 operator>(f32 a, lane_f32 b)
 {
     lane_u32 result = (lane_f32_from_f32(a) > b);
@@ -344,6 +351,13 @@ internal lane_u32
 operator<(lane_f32 a, f32 b)
 {
     lane_u32 result = (a < lane_f32_from_f32(b));
+    return result;
+}
+
+internal lane_u32
+operator<=(lane_f32 a, f32 b)
+{
+    lane_u32 result = (a <= lane_f32_from_f32(b));
     return result;
 }
 

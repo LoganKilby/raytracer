@@ -331,6 +331,16 @@ lane_u32_from_u32(u32 a)
     return(result);
 }
 
+internal lane_u32
+lane_f32_from_u32(lane_f32 a)
+{
+    lane_u32 result;
+    
+    result.v = _mm_cvtps_epi32(a.v);
+    
+    return(result);
+}
+
 internal lane_f32
 lane_f32_from_u32(u32 a)
 {
@@ -352,6 +362,16 @@ lane_f32_from_f32(f32 a)
 }
 
 internal lane_f32
+lane_f32_from_f32(f32 a, f32 b, f32 c, f32 d)
+{
+    lane_f32 result;
+    
+    result.v = _mm_set_ps(a, b, c, d);
+    
+    return(result);
+}
+
+internal lane_f32
 square_root(lane_f32 a)
 {
     lane_f32 result;
@@ -361,7 +381,7 @@ square_root(lane_f32 a)
     return(result);
 }
 
-internal void
+inline void
 conditional_assign(lane_f32 *dest, lane_u32 mask, lane_f32 src)
 {
     __m128 mask_ps = _mm_castsi128_ps(mask.v);
@@ -387,6 +407,16 @@ fmax(lane_f32 a, lane_f32 b)
     result.v = _mm_max_ps(a.v, b.v);
     
     return(result);
+}
+
+inline lane_f32
+wpow(lane_f32 a, lane_f32 exp)
+{
+    lane_f32 result;
+    
+    result.v = _mm_pow_ps(a.v, exp.v);
+    
+    return result;
 }
 
 internal lane_f32

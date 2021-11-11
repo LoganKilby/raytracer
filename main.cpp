@@ -29,7 +29,7 @@ linear_to_srgb(f32 linear)
         linear = 1.0f;
     }
     
-    f32 srgb = linear * 12.95f;;
+    f32 srgb = linear * 12.95f;
     if(linear > 0.0031308f)
     {
         srgb = 1.055f * (f32)pow(linear, 1.0f/2.4f) - 0.055f;
@@ -38,27 +38,79 @@ linear_to_srgb(f32 linear)
     return srgb;
 }
 
+// TODO: Spatial acceleration
+internal triangle_buffer
+gather_triangles(fast_obj_mesh **mesh_buffer, u32 mesh_count, u32 tile_min_x, u32 tile_min_y, u32 tile_max_x, u32 tile_max_y)
+{
+    Assert(mesh_count == 1);
+    
+    triangle_buffer result = {};
+    
+    u32 triangle_count = mesh_buffer[0]->groups[0].face_count;
+    result.tri = (triangle *)malloc(sizeof(triangle) * triangle_count);
+    result.count = triangle_count;
+    
+    triangle tri;
+    u32 tri_index = 0;
+    for(u32 mesh_index = 0; mesh_index < mesh_count; ++mesh_index)
+    {
+        fastObjMesh *mesh = mesh_buffer[mesh_index];
+        for(u32 group_index = 0; group_index < mesh->group_count; ++group_index)
+        {
+            lane_u32 u32_max = lane_u32_from_u32(0xFFFFFFFF);
+            fastObjGroup *group = &mesh->groups[group_index];
+            Assert(mesh->face_vertices[group->face_offset] == 3);
+            for(u32 face_index = 0; face_index < group->face_count; ++face_index)
+            {
+                // NOTE: mesh->indices holds each face "fastObjIndex" as three
+                // seperate index objects contiguously laid out one after the other
+                fastObjIndex m0 = mesh->indices[group->index_offset + 3 * face_index + 0];
+                fastObjIndex m1 = mesh->indices[group->index_offset + 3 * face_index + 1];
+                fastObjIndex m2 = mesh->indices[group->index_offset + 3 * face_index + 2];
+                
+                tri.v0 = *(v3 *)&mesh->positions[3 * m0.p];
+                tri.v1 = *(v3 *)&mesh->positions[3 * m1.p];
+                tri.v2 = *(v3 *)&mesh->positions[3 * m2.p];
+                tri.normal = *(v3 *)&mesh->normals[3 * m0.n];
+                
+                tri.v0.z += 1;
+                tri.v1.z += 1;
+                tri.v2.z += 1;
+                
+                result.tri[tri_index++] = tri;
+            }
+        }
+    }
+    
+    return result;
+}
+
 global_variable b32 render_progress_to_window;
 
 int main(int argc, char **argv)
 {
-    bool show_preview = true;
     bool multithreaded = true;
+    bool show_preview = false;
+    
+    if(show_preview && !multithreaded)
+        show_preview = false;
     
     s32 image_width = 1280;
     s32 image_height = 720;
-    pixel_buffer buffer = allocate_pixel_buffer(image_width, image_height);
+    pixel_buffer screen_buffer = allocate_pixel_buffer(image_width, image_height);
     
-    material materials[7] = {};
+    material materials[8] = {};
     materials[0].emit_color = {0.3f, 0.4f, 0.5f}; // sky
     materials[1].reflect_color = {0.5f, 0.5f, 0.5f}; // ground
     materials[2].reflect_color = {0.7f, 0.5f, 0.3f};
-    materials[3].emit_color = {5.0f, 0.0f, 0.0f};
+    materials[3].emit_color = {5.0f, 0.0f, 0.0f}; // red light
     materials[4].reflect_color = {0.2f, 0.8f, 0.2f};
     materials[5].reflect_color = {0.4f, 0.8f, 0.9f};
     materials[5].specular = 0.85f;
     materials[6].reflect_color = {0.95f, 0.95f, 0.95f};
     materials[6].specular = 1.0f;
+    materials[7].reflect_color = {0.0f, 0.0f, 0.0f};
+    materials[7].specular = 1.0f;
     
     plane planes[1] = {};
     planes[0].d = 0;
@@ -66,7 +118,7 @@ int main(int argc, char **argv)
     planes[0].material_index = 1;
     
     sphere spheres[5] = {};
-    spheres[0].origin = {0, 0, 0};
+    spheres[0].origin = {10, 0, 0};
     spheres[0].radius = 1;
     spheres[0].material_index = 2;
     spheres[1].origin = {3, -2, 0};
@@ -82,9 +134,9 @@ int main(int argc, char **argv)
     spheres[4].radius = 2.0;
     spheres[4].material_index = 6;
     
-    fastObjMesh *mesh_storage[] = 
+    fast_obj_mesh *mesh_storage[] = 
     {
-        fast_obj_read("mesh/cube.obj"),
+        fast_obj_read("mesh/low-poly-cube.obj"),
     };
     
     world world = {};
@@ -98,10 +150,10 @@ int main(int argc, char **argv)
     world.mesh_count = array_count(mesh_storage);
     
     u32 core_count = multithreaded ? get_core_count() : 1;
-    u32 tile_width = buffer.width / core_count;
+    u32 tile_width = screen_buffer.width / core_count;
     u32 tile_height = tile_width;
-    u32 tile_count_x = (buffer.width + tile_width - 1) / tile_width;
-    u32 tile_count_y = (buffer.height + tile_height - 1) / tile_height;
+    u32 tile_count_x = (screen_buffer.width + tile_width - 1) / tile_width;
+    u32 tile_count_y = (screen_buffer.height + tile_height - 1) / tile_height;
     u32 total_tile_count = tile_count_x * tile_count_y;
     printf("processing: %d cores and %d %dx%d (%dk/tile) tiles, %d-wide lanes\n", core_count, total_tile_count, tile_width, tile_height, tile_width * tile_height * 4 * 4 / 1024, LANE_WIDTH);
     
@@ -115,37 +167,40 @@ int main(int argc, char **argv)
     
     queue.max_bounce_count = 8;
     queue.work_orders = (work_order *)malloc(sizeof(work_order) * total_tile_count);
-    printf("resolution: %d by %d pixels. %d rays per pixel. %d maximum bounces per pixel\n", buffer.width, buffer.height, queue.rays_per_pixel, queue.max_bounce_count);
+    printf("resolution: %d by %d pixels. %d rays per pixel. %d maximum bounces per pixel\n", screen_buffer.width, screen_buffer.height, queue.rays_per_pixel, queue.max_bounce_count);
+    
+    triangle_buffer tri_buf = gather_triangles(mesh_storage, array_count(mesh_storage), 0, 0, 0, 0);
     
     for(u32 tile_y = 0; tile_y < tile_count_y; ++tile_y)
     {
         u32 min_y = tile_y * tile_height;
         u32 max_y = min_y + tile_height;
-        if(max_y > buffer.height)
+        if(max_y > screen_buffer.height)
         {
-            max_y = buffer.height;
+            max_y = screen_buffer.height;
         }
         
         for(u32 tile_x = 0; tile_x < tile_count_x; ++tile_x)
         {
             u32 min_x = tile_x * tile_width;
             u32 max_x = min_x + tile_width;
-            if(max_x > buffer.width)
+            if(max_x > screen_buffer.width)
             {
-                max_x = buffer.width;
+                max_x = screen_buffer.width;
             }
             
             work_order *order = queue.work_orders + queue.work_order_count++;
             Assert(queue.work_order_count <= total_tile_count);
             
             order->world = &world;
-            order->buffer = &buffer; 
+            order->screen_buffer = &screen_buffer; 
+            order->tri_buffer = tri_buf; // TODO: Load spacially relevant triangles?
             order->min_x = min_x;
             order->min_y = min_y;
             order->max_x = max_x;
             order->max_y = max_y;
             
-            // TODO: repleace with real entropy
+            // TODO: replace with real entropy
             random_series entropy = 
             {
                 lane_u32_from_u32((2334598 + tile_x * 5535 + tile_y * 64568),
@@ -193,15 +248,19 @@ int main(int argc, char **argv)
             
             printf("\rrendering... %.0f%%", ((f32)queue.tiles_retired / (f32)queue.work_order_count) * 100);
             fflush(stdout);
-            update_preview(&preview, buffer.data);
+            update_preview(&preview, screen_buffer.data);
         }
         
-        update_preview(&preview, buffer.data);
+        update_preview(&preview, screen_buffer.data);
     }
     else
     {
         QueryPerformanceFrequency(&frequency);
         QueryPerformanceCounter(&timer_start);
+        
+        printf("\rrendering... %.0f%%", ((f32)queue.tiles_retired / (f32)queue.work_order_count) * 100);
+        fflush(stdout);
+        
         for(u32 core_index = 1; core_index < core_count; ++core_index)
         {
             create_worker_thread(&queue);
@@ -235,7 +294,7 @@ int main(int argc, char **argv)
     printf("wasted bounces: %llu (%.02f%%)\n", wasted_bounces, 100.0f * (f32)wasted_bounces / (f32)total_bounces);
     
     f32 gamma = 2.2f;
-    write_ppm(buffer.data, buffer.width, buffer.height, gamma, "test.ppm");
+    write_ppm(screen_buffer.data, screen_buffer.width, screen_buffer.height, gamma, "test.ppm");
     
     return 0;
 }
@@ -292,21 +351,18 @@ write_ppm(f32 *pixel_data, int width, int height, f32 gamma, char *file_name)
     fprintf(file_handle, "P3\n%u %u\n255\n", width, height);
     
     int pitch = width * 3;
-    u8 r, g, b;
-    v3 *pixel;
     
-    f32 inv_gamma = 1.0f / gamma;
-    for(f32 *row = pixel_data; 
-        row < pixel_data + height * pitch; 
-        row += pitch)
+    for(f32 *row = pixel_data + (width * height * 3); 
+        row > pixel_data; 
+        row -= pitch)
     {
-        for(f32 *col = row; col < row + pitch; col += 3)
+        for(f32 *col = row; col > row - pitch; col -= 3)
         {
-            pixel = (v3 *)col;
+            u8 r, g, b;
+            v3 *pixel = (v3 *)col;
             r = (u8)(linear_to_srgb(pixel->r) * 255);
             g = (u8)(linear_to_srgb(pixel->g) * 255);
             b = (u8)(linear_to_srgb(pixel->b) * 255);
-            
             fprintf(file_handle, "%u %u %u ", r, g, b);
         }
         

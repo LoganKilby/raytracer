@@ -1,2 +1,2 @@
 @echo off
-start test.ppm
+start build/test.ppm

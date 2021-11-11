@@ -164,9 +164,9 @@ pbrt_triangle_intersection(triangle *tri, lane_v3 ray_origin, lane_v3 ray_direct
 {
     // transform triangle verts to ray cooridnate space:
     // translate
-    lane_v3 p0t = lane_v3_from_v3(tri->vert0) - ray_origin;
-    lane_v3 p1t = lane_v3_from_v3(tri->vert1) - ray_origin;
-    lane_v3 p2t = lane_v3_from_v3(tri->vert2) - ray_origin;
+    lane_v3 p0t = lane_v3_from_v3(tri->v0) - ray_origin;
+    lane_v3 p1t = lane_v3_from_v3(tri->v1) - ray_origin;
+    lane_v3 p2t = lane_v3_from_v3(tri->v2) - ray_origin;
     
     // permute components of triangle vertices and ray direction ?
     lane_u32 kz = max_dimensions(wabs(ray_direction));
@@ -218,7 +218,7 @@ pbrt_triangle_intersection(triangle *tri, lane_v3 ray_origin, lane_v3 ray_direct
     // triangle edge and determinant tests
     lane_u32 triangle_edge_mask = ((e0 < 0) | (e1 < 0) | (e2 < 0)) & ((e0 > 0) | (e1 > 0) | (e2 > 0));
     lane_f32 determinant = e0 + e1 + e2;
-    lane_u32 det_mask = (determinant == zero_lane_f32);
+    lane_u32 det_mask = (determinant < EPSILON);
     
     if(!mask_is_zeroed(det_mask & triangle_edge_mask))
     {
@@ -268,9 +268,122 @@ conditionall_assign(hit_mat_index, hit_mask, mat_index);
 }
 
 internal void
-triangle_intersection()
+eberly_triangle_intersection(triangle *tri, lane_v3 ray_direction, lane_v3 ray_origin)
 {
+    lane_f32 min_hit_distance = lane_f32_from_f32(0);
+    lane_f32 hit_distance;
+    lane_u32 hit_mat_index;
+    lane_v3 hit_normal;
     
+    //////////
+    
+    lane_v3 vert0 = lane_v3_from_v3(tri->v0);
+    lane_v3 vert1 = lane_v3_from_v3(tri->v1);
+    lane_v3 vert2 = lane_v3_from_v3(tri->v2);
+    lane_v3 normal = lane_v3_from_v3(tri->normal);
+    
+    // NOTE: Does not cull back-facing triangles
+    lane_v3 e1, e2, p, s, q;
+    lane_f32 t, u, v, tmp;
+    
+    e1 = vert1 - vert0;
+    e2 = vert2 - vert0;
+    p = cross(ray_direction, e2);
+    tmp = inner(p, e1);
+    
+    lane_u32 u32_max = lane_u32_from_u32(0xFFFFFFFF);
+    lane_u32 tmp_mask = ((tmp > -EPSILON) & (tmp < EPSILON)) ^ u32_max;
+    if(!mask_is_zeroed(tmp_mask))
+    {
+        tmp = 1.0f / tmp;
+        s = ray_origin - vert0;
+        u = tmp * inner(s, p);
+        
+        lane_u32 u_mask = ((u < 0) | (u > 1.0f)) ^ u32_max;
+        if(!mask_is_zeroed(u_mask))
+        {
+            q = cross(s, e1);
+            v = tmp * inner(ray_direction, q);
+            
+            lane_u32 v_mask = (v < 0) | (v > 1);
+            lane_u32 uv_mask = ((u + v) > 1);
+            if(!mask_is_zeroed((v_mask & uv_mask) ^ u32_max))
+            {
+                t = tmp * inner(e2, q);
+                lane_u32 t_mask = (t > min_hit_distance) & (t < hit_distance);
+                conditional_assign(&hit_distance, t_mask, t);
+                conditional_assign(&hit_mat_index, t_mask, lane_u32_from_u32(5));
+                conditional_assign(&hit_normal, t_mask, normal);
+                //lane_v3 intersection = ray_origin + t * ray_direction;
+            }
+        }
+    }
+    
+    lane_v3 intersection = ray_origin + t * ray_direction;
+}
+
+internal void
+scratch_triangle_intersection(triangle tri)
+{
+    lane_v3 ray_direction = lane_v3_from_v3(V3(0, 0, 0));
+    lane_v3 hit_normal = lane_v3_from_v3(V3(0, 0, 0));
+    lane_v3 ray_origin = lane_v3_from_v3(V3(0, 0, 0));
+    lane_f32 hit_distance = lane_f32_from_f32(0);
+    lane_u32 hit_mat_index;
+    
+    lane_v3 v0 = lane_v3_from_v3(tri.v0);
+    lane_v3 v1 = lane_v3_from_v3(tri.v1);
+    lane_v3 v2 = lane_v3_from_v3(tri.v2);
+    
+    lane_v3 v0v1 = v1 - v0;
+    lane_v3 v0v2 = v2 - v0;
+    lane_v3 normal = lane_v3_from_v3(tri.normal);
+    
+    // Should equal stored normal
+    lane_v3 test = cross(v0v1, v0v2);
+    
+    lane_f32 area2 = length(normal);
+    
+    // check if ray and plane are parallel
+    lane_f32 ndr = inner(normal, ray_direction);
+    //lane_u32 abs_mask = wabs(ndr) > EPSILON;
+    
+    //if(!mask_is_zeroed(abs_mask))
+    {
+        lane_f32 d = inner(normal, v0);
+        lane_f32 t = (inner(normal, ray_origin) + d) / ndr;
+        lane_u32 t_mask = (t > EPSILON) & (t < hit_distance);
+        
+        if(!mask_is_zeroed(t_mask))
+        {
+            lane_v3 p = ray_origin + t * ray_direction;
+            lane_v3 c; // vector perp to triangle's plane
+            lane_v3 edge;
+            lane_v3 vp;
+            
+            lane_f32 zero_lane = lane_f32_from_f32(0);
+            
+            edge = v1 - v0;
+            vp = p - v0;
+            c = cross(edge, vp);
+            lane_u32 edge0_mask = (inner(normal, c) >= zero_lane);
+            
+            edge = v2 - v1;
+            vp = p - v1;
+            c = cross(edge, vp);
+            lane_u32 edge1_mask = (inner(normal, c) >= zero_lane);
+            
+            edge = v0 - v2;
+            vp = p - v2;
+            c = cross(edge, vp);
+            lane_u32 edge2_mask = (inner(normal, c) >= zero_lane);
+            
+            lane_u32 hit_mask = edge0_mask & edge1_mask & edge2_mask;
+            conditional_assign(&hit_distance, hit_mask, t);
+            conditional_assign(&hit_mat_index, hit_mask, lane_u32_from_u32(5));
+            conditional_assign(&hit_normal, hit_mask, normal);
+        }
+    }
 }
 
 internal void
@@ -278,6 +391,7 @@ cast_sample_rays(ray_cast_state *state)
 {
     // in
     world *world = state->world; 
+    triangle_buffer tri_buffer = state->tri_buffer;
     u32 rays_per_pixel = state->rays_per_pixel; 
     u32 max_bounce_count = state->max_bounce_count;
     random_series *series = state->series; 
@@ -299,6 +413,7 @@ cast_sample_rays(ray_cast_state *state)
     f32 color_contribution = 1.0f / rays_per_pixel;
     
     lane_f32 min_hit_distance = lane_f32_from_f32(EPSILON);
+    lane_u32 u32_max = lane_u32_from_u32(0xFFFFFFFF);
     
     // TODO: Could potentially wrap the u32
     lane_u32 bounces_computed = lane_u32_from_u32(0);
@@ -390,19 +505,132 @@ cast_sample_rays(ray_cast_state *state)
                 }
             }
             
-            // TODO: acceleration structure
-            for(u32 mesh_index = 0; mesh_index < world->mesh_count; ++mesh_index)
+            for(u32 tri_index = 0; tri_index < tri_buffer.count; ++tri_index)
             {
-                fastObjMesh *mesh = world->meshes[mesh_index];
-                for(u32 group_index = 0; group_index < mesh->group_count; ++group_index)
+                lane_v3 v0 = lane_v3_from_v3(tri_buffer.tri[tri_index].v0);
+                lane_v3 v1 = lane_v3_from_v3(tri_buffer.tri[tri_index].v1);
+                lane_v3 v2 = lane_v3_from_v3(tri_buffer.tri[tri_index].v2);
+                lane_v3 normal = lane_v3_from_v3(tri_buffer.tri[tri_index].normal);
+                
+#if 0
+                lane_v3 v0v1 = v1 - v0;
+                lane_v3 v0v2 = v2 - v0;
+                lane_v3 pv = cross(ray_direction, v0v2);
+                lane_f32 det = inner(v0v1, pv);
+                
+                lane_u32 det_mask = (det < -min_hit_distance) | (det > min_hit_distance);
+                
+                //det_mask &= (det > min_hit_distance);
+                
+                if(!mask_is_zeroed(det_mask))
                 {
-                    fastObjGroup *group = &mesh->groups[group_index];
-                    Assert(mesh->face_vertices[group->face_offset] == 3);
-                    for(u32 face_index = 0; face_index < group->face_count; ++face_index)
+                    lane_f32 inv_det = 1 / det;
+                    lane_v3 tv = ray_origin - v0;
+                    lane_f32 u = inner(tv, pv) * inv_det;
+                    lane_u32 u_mask = ((u >= 0) & (u <= 1));
+                    if(!mask_is_zeroed(u_mask))
                     {
-                        
+                        lane_v3 qv = cross(tv, v0v1);
+                        lane_f32 v = inner(ray_direction, qv) * inv_det;
+                        lane_u32 v_mask = ((v >= 0) & (v <= 1));
+                        if(!mask_is_zeroed(v_mask))
+                        {
+                            lane_f32 t = inner(v0v2, qv) * inv_det;
+                            lane_u32 t_mask = (t > min_hit_distance) & (t < hit_distance);
+                            conditional_assign(&hit_distance, t_mask, t);
+                            conditional_assign(&hit_mat_index, t_mask, lane_u32_from_u32(1));
+                            conditional_assign(&hit_normal, t_mask, normal);
+                        }
                     }
                 }
+                
+#if 0
+                // Should equal stored normal
+                //lane_v3 normal = cross(v0v1, v0v2);
+                
+                //lane_f32 area2 = length(normal);
+                
+                // check if ray and plane are parallel
+                lane_f32 denom = inner(normal, ray_direction);
+                //lane_u32 abs_mask = wabs(denom) > EPSILON;
+                lane_u32 denom_mask = (denom < -min_hit_distance) | (denom > min_hit_distance);
+                
+                if(!mask_is_zeroed(denom_mask))
+                {
+                    lane_f32 d = inner(normal, v0);
+                    lane_f32 t = (inner(normal, ray_origin) + d) / denom;
+                    lane_u32 t_mask = ((t > EPSILON) & (t < hit_distance));
+                    
+                    if(!mask_is_zeroed(t_mask))
+                    {
+                        lane_v3 p = ray_origin + t * ray_direction;
+                        lane_v3 c; // vector perp to triangle's plane
+                        lane_v3 edge;
+                        lane_v3 vp;
+                        
+                        edge = v1 - v0;
+                        vp = p - v0;
+                        c = cross(edge, vp);
+                        lane_u32 edge0_mask = (inner(normal, c) < 0) ^ u32_max;
+                        
+                        edge = v2 - v1;
+                        vp = p - v1;
+                        c = cross(edge, vp);
+                        lane_u32 edge1_mask = (inner(normal, c) < 0) ^ u32_max;
+                        
+                        edge = v0 - v2;
+                        vp = p - v2;
+                        c = cross(edge, vp);
+                        lane_u32 edge2_mask = (inner(normal, c) < 0) ^ u32_max;
+                        
+                        lane_u32 hit_mask = (edge0_mask & edge1_mask & edge2_mask);
+                        
+                        conditional_assign(&hit_distance, hit_mask, t);
+                        conditional_assign(&hit_mat_index, hit_mask, lane_u32_from_u32(1));
+                        conditional_assign(&hit_normal, hit_mask, normal);
+                    }
+                }
+#endif
+                
+#else
+                // NOTE: Does not cull back-facing triangles
+                lane_v3 e1, e2, p, s, q;
+                lane_f32 t, u, v, denom;
+                
+                e1 = v1 - v0;
+                e2 = v2 - v0;
+                p = cross(ray_direction, e2);
+                denom = inner(p, e1);
+                
+                lane_u32 denom_mask = (denom > EPSILON);
+                if(!mask_is_zeroed(denom_mask))
+                {
+                    denom = 1.0f / denom;
+                    s = ray_origin - v0;
+                    u = denom * inner(s, p);
+                    
+                    lane_u32 u_mask = ((u >= 0) & (u <= 1));
+                    if(!mask_is_zeroed(u_mask))
+                    {
+                        q = cross(s, e1);
+                        v = denom * inner(ray_direction, q);
+                        
+                        lane_u32 v_mask = (v >= 0) & (v <= 1);
+                        lane_u32 uv_mask = ((u + v) <= 1);
+                        if(!mask_is_zeroed((v_mask & uv_mask)))
+                        {
+                            t = denom * inner(e2, q);
+                            lane_u32 t_mask = (t > min_hit_distance) & (t < hit_distance);
+                            
+                            conditional_assign(&hit_distance, t_mask, t);
+                            conditional_assign(&hit_mat_index, t_mask, lane_u32_from_u32(1));
+                            conditional_assign(&hit_normal, t_mask, normal);
+                            //lane_v3 intersection = ray_origin + t * ray_direction;
+                        }
+                    }
+                }
+                
+#endif
             }
             
             //material mat = world->materials[hit_mat_index];
@@ -472,21 +700,22 @@ render_tile(work_queue *queue)
     u32 y_min = order->min_y;
     u32 x_count = order->max_x;
     u32 y_count = order->max_y;
-    pixel_buffer *buffer = order->buffer;
+    pixel_buffer *screen_buffer = order->screen_buffer;
     
-    if(buffer->width > buffer->height)
+    if(screen_buffer->width > screen_buffer->height)
     {
-        film_height = film_width * (f32)buffer->height / (f32)buffer->width;
+        film_height = film_width * (f32)screen_buffer->height / (f32)screen_buffer->width;
     }
-    else if(buffer->height > buffer->width)
+    else if(screen_buffer->height > screen_buffer->width)
     {
-        film_width = film_height * (f32)buffer->width / (f32)buffer->height;
+        film_width = film_height * (f32)screen_buffer->width / (f32)screen_buffer->height;
     }
     
     ray_cast_state state = {};
     state.rays_per_pixel = queue->rays_per_pixel;
     state.max_bounce_count = queue->max_bounce_count;
     state.world = order->world;
+    state.tri_buffer = order->tri_buffer;
     state.series = &order->entropy;
     state.camera_x_axis = extract_lane_0(camera_x_axis);
     state.camera_y_axis = extract_lane_0(camera_y_axis);
@@ -495,20 +724,20 @@ render_tile(work_queue *queue)
     state.half_film_width = 0.5f * film_width;
     state.half_film_height = 0.5f * film_height;
     state.film_center = extract_lane_0(film_center);
-    state.half_pixel_width = 0.5f / buffer->width;
-    state.half_pixel_height = 0.5f / buffer->height;
+    state.half_pixel_width = 0.5f / screen_buffer->width;
+    state.half_pixel_height = 0.5f / screen_buffer->height;
     state.bounces_computed = 0;
     state.loops_computed = 0;
     
     for(u32 row = y_min; row < y_count; ++row)
     {
-        state.film_y = -1.0f + 2.0f * ((f32)row / (f32)buffer->height);
+        state.film_y = -1.0f + 2.0f * ((f32)row / (f32)screen_buffer->height);
         for(u32 col = x_min; col < x_count; ++col)
         {
-            state.film_x = -1.0f + 2.0f * ((f32)col / (f32)buffer->width);
+            state.film_x = -1.0f + 2.0f * ((f32)col / (f32)screen_buffer->width);
             
             cast_sample_rays(&state);
-            set_pixel(buffer, col, row, state.final_color);
+            set_pixel(screen_buffer, col, row, state.final_color);
             //bounces_computed += state.bounces_computed;
             //loops_computed += state.loops_computed;
         }
@@ -546,36 +775,4 @@ get_core_count()
     u32 result = sys_info.dwNumberOfProcessors;
     Assert(result);
     return result;
-}
-
-internal void
-display_buffer_in_window(render_state *rs)
-{
-    locked_exchange_u32(&rs->context_ready, 1);
-    
-    LARGE_INTEGER timer_start;
-    LARGE_INTEGER frequency;
-    QueryPerformanceFrequency(&frequency);
-    QueryPerformanceCounter(&timer_start);
-    
-    while(rs->queue->tiles_retired < rs->total_tile_count)
-    {
-        printf("\rrendering... %.0f%%", ((f32)rs->queue->tiles_retired / (f32)rs->queue->work_order_count) * 100);
-        fflush(stdout);
-    }
-    
-    printf("\rrendering... %.0f%%", ((f32)rs->queue->tiles_retired / (f32)rs->queue->work_order_count) * 100);
-    fflush(stdout);
-    printf("\n");
-    
-    LARGE_INTEGER timer_end;
-    QueryPerformanceCounter(&timer_end);
-    timer_end.QuadPart = timer_end.QuadPart - timer_start.QuadPart;
-    timer_end.QuadPart *= 1000000;
-    timer_end.QuadPart /= frequency.QuadPart;
-    f64 ms_elapsed = (f64)timer_end.QuadPart / (f64)1000;
-    f64 ms_per_bounce = ms_elapsed / rs->queue->bounces_computed;
-    printf("runtime: %.3Lf ms\n", ms_elapsed);
-    printf("per-ray performance: %Lf ms\n", ms_per_bounce);
-    locked_exchange_u32(&rs->render_in_progress, 0);
 }
