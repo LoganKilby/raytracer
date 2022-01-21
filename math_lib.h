@@ -17,19 +17,16 @@
 #define float_zero(x) (fabs(x) < EPSILON)
 #define square(a) (a * a)
 
-struct v3
+union v3
 {
-    union
+    struct
     {
-        struct
-        {
-            f32 x, y, z;
-        };
-        
-        struct
-        {
-            f32 r, g, b;
-        };
+        f32 x, y, z;
+    };
+    
+    struct
+    {
+        f32 r, g, b;
     };
 };
 

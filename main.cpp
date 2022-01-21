@@ -8,7 +8,7 @@
 #include "ray.cpp"
 #include "preview.cpp"
 
-// Forman Action (books):
+// Forman Acton (books):
 // Numerical Methods That Work -- Real Computing Made Real
 
 // Paper on floating point arithmetic:
